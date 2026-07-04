@@ -80,7 +80,7 @@ export function KycStepCard({
 
         {error && <p className="text-xs text-red-600">{error}</p>}
 
-        {hasData && (
+        {hasData && status !== "VERIFIED" && (
           <>
             {showReject ? (
               <div className="space-y-2 pt-2 border-t border-[var(--border)]">

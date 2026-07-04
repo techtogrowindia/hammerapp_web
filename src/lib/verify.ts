@@ -1,15 +1,19 @@
 /**
  * GST + Aadhaar-PAN verification adapters — pluggable stubs.
  *
- * The shop app calls company_kyc with { gst_available, gstin } and expects
- * `data.gst_details.legal_name` back. It also checks aadhar_pan_linkage.
- * Until a real provider (IDFY/Signzy/etc.) is wired via env, these return
- * mock-verified responses so onboarding works end-to-end.
+ * Credentials are read first from the DB Settings table (set via the admin
+ * Settings page), then from environment variables as a fallback.
+ * Until credentials are configured, these return mock responses so onboarding
+ * works end-to-end in development.
+ *
+ * IDfy API format:
+ *   POST https://api.idfy.com/tasks/sync/verify_with_source/<endpoint>
+ *   Headers: api-key, account-id, Content-Type: application/json
+ *   Body: { task_id, group_id, data: { ... } }
  */
 
-const GST_PROVIDER = process.env.GST_VERIFY_PROVIDER; // e.g. "idfy"
-const GST_API_URL = process.env.GST_VERIFY_URL;
-const GST_API_KEY = process.env.GST_VERIFY_KEY;
+import { getSettings } from "./settings";
+import { randomUUID } from "crypto";
 
 export interface GstDetails {
   legal_name: string;
@@ -27,13 +31,23 @@ export function isValidGstin(gstin: string): boolean {
   return GSTIN_RE.test(gstin.toUpperCase());
 }
 
+/** Load IDfy credentials: DB settings take priority over env vars. */
+async function getIdfyCredentials(): Promise<{ apiKey: string; accountId: string } | null> {
+  const s = await getSettings(["idfy.api_key", "idfy.account_id"]);
+  const apiKey = s["idfy.api_key"] || process.env.IDFY_API_KEY || "";
+  const accountId = s["idfy.account_id"] || process.env.IDFY_ACCOUNT_ID || "";
+  if (!apiKey || !accountId) return null;
+  return { apiKey, accountId };
+}
+
 export async function verifyGstin(gstinRaw: string): Promise<GstDetails> {
   const gstin = gstinRaw.toUpperCase().trim();
   if (!isValidGstin(gstin)) {
-    return { legal_name: "", gstin, verified: false, mock: !isGstLive() };
+    return { legal_name: "", gstin, verified: false, mock: false };
   }
 
-  if (!isGstLive()) {
+  const creds = await getIdfyCredentials();
+  if (!creds) {
     // Stub: derive a plausible legal name from the PAN embedded in the GSTIN.
     return {
       legal_name: `Shop ${gstin.slice(2, 7)} Enterprises`,
@@ -45,59 +59,97 @@ export async function verifyGstin(gstinRaw: string): Promise<GstDetails> {
     };
   }
 
-  const res = await fetch(GST_API_URL!, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(GST_API_KEY ? { Authorization: `Bearer ${GST_API_KEY}` } : {}),
+  const res = await fetch(
+    "https://api.idfy.com/tasks/sync/verify_with_source/gstin",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": creds.apiKey,
+        "account-id": creds.accountId,
+      },
+      body: JSON.stringify({
+        task_id: randomUUID(),
+        group_id: randomUUID(),
+        data: { id_number: gstin },
+      }),
     },
-    body: JSON.stringify({ gstin, provider: GST_PROVIDER }),
-  });
-  if (!res.ok) throw new Error(`GST verify failed: ${res.status}`);
+  );
+
+  if (!res.ok) throw new Error(`IDfy GST verify failed: ${res.status}`);
+
   const data = (await res.json()) as {
-    legal_name?: string;
-    trade_name?: string;
-    status?: string;
-    address?: string;
+    result?: {
+      source_output?: {
+        legal_name_of_business?: string;
+        trade_name?: string;
+        gstin_status?: string;
+        address?: string;
+      };
+    };
   };
+
+  const out = data.result?.source_output ?? {};
   return {
-    legal_name: data.legal_name ?? "",
-    trade_name: data.trade_name,
+    legal_name: out.legal_name_of_business ?? "",
+    trade_name: out.trade_name,
     gstin,
-    status: data.status,
-    address: data.address,
-    verified: Boolean(data.legal_name),
+    status: out.gstin_status,
+    address: out.address,
+    verified: Boolean(out.legal_name_of_business),
     mock: false,
   };
 }
 
 export function isGstLive(): boolean {
-  return Boolean(GST_API_URL);
+  return Boolean(process.env.IDFY_API_KEY || process.env.GST_VERIFY_URL);
 }
 
 /**
- * Aadhaar–PAN linkage check. Stub returns linked=true. A real provider
- * would take the aadhaar + pan and return the linkage status.
+ * Aadhaar–PAN linkage check via IDfy.
+ * Stub returns linked=true when both numbers present.
+ * Provide IDfy credentials in admin Settings to go live — no deploy needed.
  */
 export async function checkAadharPanLinkage(
   aadhar: string,
   pan: string,
 ): Promise<{ linked: boolean; mock: boolean }> {
-  const provider = process.env.AADHAR_PAN_VERIFY_URL;
-  if (!provider) {
+  const creds = await getIdfyCredentials();
+  if (!creds) {
     return { linked: Boolean(aadhar && pan), mock: true };
   }
-  const res = await fetch(provider, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(process.env.AADHAR_PAN_VERIFY_KEY
-        ? { Authorization: `Bearer ${process.env.AADHAR_PAN_VERIFY_KEY}` }
-        : {}),
+
+  const res = await fetch(
+    "https://api.idfy.com/tasks/sync/verify_with_source/aadhaar_pan_link",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": creds.apiKey,
+        "account-id": creds.accountId,
+      },
+      body: JSON.stringify({
+        task_id: randomUUID(),
+        group_id: randomUUID(),
+        data: {
+          aadhaar_number: aadhar,
+          pan_number: pan,
+        },
+      }),
     },
-    body: JSON.stringify({ aadhar, pan }),
-  });
-  if (!res.ok) throw new Error(`Aadhaar-PAN linkage failed: ${res.status}`);
-  const data = (await res.json()) as { linked?: boolean };
-  return { linked: Boolean(data.linked), mock: false };
+  );
+
+  if (!res.ok) throw new Error(`IDfy Aadhaar-PAN check failed: ${res.status}`);
+
+  const data = (await res.json()) as {
+    result?: {
+      source_output?: {
+        source_output?: string; // "Y" = linked
+      };
+    };
+  };
+
+  const sourceOut = data.result?.source_output?.source_output ?? "";
+  const linked = sourceOut.toUpperCase() === "Y";
+  return { linked, mock: false };
 }
