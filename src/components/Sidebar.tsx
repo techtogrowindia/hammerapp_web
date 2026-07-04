@@ -73,7 +73,13 @@ const NAV: NavSection[] = [
   },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  logo,
+  siteName,
+}: {
+  logo?: string | null;
+  siteName?: string | null;
+}) {
   const pathname = usePathname();
 
   const isActive = (href: string) =>
@@ -81,9 +87,16 @@ export function Sidebar() {
 
   return (
     <aside className="w-64 shrink-0 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] flex flex-col h-screen sticky top-0">
-      <div className="flex items-center gap-2 px-6 h-16 border-b border-white/10">
-        <Hammer className="h-6 w-6 text-[var(--accent)]" />
-        <span className="text-white font-bold text-lg tracking-tight">Hammer</span>
+      <div className="flex items-center gap-2 px-4 h-16 border-b border-white/10">
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logo} alt={siteName ?? "Hammer"} className="h-10 max-w-[180px] object-contain" />
+        ) : (
+          <>
+            <Hammer className="h-6 w-6 text-[var(--accent)]" />
+            <span className="text-white font-bold text-lg tracking-tight">{siteName ?? "Hammer"}</span>
+          </>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">

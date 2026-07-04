@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { getSettings } from "@/lib/settings";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -12,10 +13,21 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "Hammer Admin",
-  description: "Hammer services marketplace — operations dashboard",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const s = await getSettings(["site.title", "site.description", "site.favicon"]);
+  const title = s["site.title"] || "Hammer Admin";
+  const description = s["site.description"] || "Hammer services marketplace — operations dashboard";
+  const faviconPath = s["site.favicon"];
+  const faviconUrl = faviconPath
+    ? `/uploads/${faviconPath.replace(/^\/+/, "")}`
+    : "/favicon.ico";
+
+  return {
+    title,
+    description,
+    icons: { icon: faviconUrl, shortcut: faviconUrl },
+  };
+}
 
 export default function RootLayout({
   children,
@@ -24,9 +36,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {children}
       </body>
     </html>

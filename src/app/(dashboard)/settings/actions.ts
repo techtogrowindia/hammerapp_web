@@ -53,6 +53,7 @@ export async function saveSettings(_prev: unknown, formData: FormData) {
     );
 
     revalidatePath("/settings");
+    revalidatePath("/", "layout"); // refresh title, favicon, sidebar logo
     return { ok: true, message: "Settings saved successfully" };
   } catch (err) {
     console.error("[saveSettings]", err);
