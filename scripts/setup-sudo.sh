@@ -5,7 +5,7 @@
 # Run as root:  sudo bash /var/www/hammerapp_web/scripts/setup-sudo.sh
 #
 # What this does:
-#   1. Creates /usr/local/bin symlinks for node/npm/npx/pm2
+#   1. Verifies NVM node/npm/npx/pm2 binaries (uses full paths, no symlinks)
 #   2. Grants hammerapp user sudo rights for deploy commands
 #   3. Creates log directory
 #   4. Installs NGINX configs (symlinks into sites-enabled)
@@ -71,7 +71,7 @@ echo "[4/7] Installing NGINX configs..."
 NGINX_AVAILABLE="/etc/nginx/sites-available"
 NGINX_ENABLED="/etc/nginx/sites-enabled"
 
-for domain in dev.hammerapp.in admin.hammerapp.in; do
+for domain in admin.hammerapp.in; do
   src="$APP_DIR/nginx/$domain.conf"
   if [[ -f "$src" ]]; then
     cp "$src" "$NGINX_AVAILABLE/$domain"
@@ -88,9 +88,9 @@ rm -f "$NGINX_ENABLED/default"
 # ── 5. NGINX rate-limit zones ────────────────────────────────
 echo "[5/7] Adding NGINX rate-limit zones..."
 NGINX_CONF="/etc/nginx/nginx.conf"
-if ! grep -q "zone=api_general" "$NGINX_CONF"; then
+if ! grep -q "zone=hammer_api_general" "$NGINX_CONF"; then
   # Insert before the first 'server {' block inside the http block
-  sed -i '/http {/a\    # Hammer App rate-limiting zones\n    limit_req_zone $binary_remote_addr zone=api_general:10m rate=10r/s;\n    limit_req_zone $binary_remote_addr zone=api_auth:10m    rate=1r/s;' "$NGINX_CONF"
+  sed -i '/http {/a\    # Hammer App rate-limiting zones\n    limit_req_zone $binary_remote_addr zone=hammer_api_general:10m rate=10r/s;\n    limit_req_zone $binary_remote_addr zone=hammer_api_auth:10m    rate=1r/s;' "$NGINX_CONF"
   echo "      Rate-limit zones added to nginx.conf"
 else
   echo "      Rate-limit zones already present"
@@ -107,7 +107,7 @@ if ! command -v certbot &>/dev/null; then
   apt-get install -y certbot python3-certbot-nginx
 fi
 
-for domain in dev.hammerapp.in admin.hammerapp.in; do
+for domain in admin.hammerapp.in; do
   CERT="/etc/letsencrypt/live/$domain/fullchain.pem"
   if [[ -f "$CERT" ]]; then
     echo "      $domain — cert already exists, skipping"
@@ -136,11 +136,11 @@ if [[ ! -f "$APP_DIR/.env" ]]; then
   echo "      Copy .env.example to .env and fill in values, then run:"
   echo "      sudo pm2 start $APP_DIR/ecosystem.config.js"
 else
-  sudo -u "$APP_USER" /usr/local/bin/pm2 start "$APP_DIR/ecosystem.config.js" \
-    || sudo -u "$APP_USER" /usr/local/bin/pm2 restart hammerapp-web
-  sudo -u "$APP_USER" /usr/local/bin/pm2 save
-  # Register PM2 startup script
-  pm2 startup systemd -u "$APP_USER" --hp "/home/$APP_USER" | tail -1 | bash
+  "$NODE_BIN/pm2" start "$APP_DIR/ecosystem.config.js" \
+    || "$NODE_BIN/pm2" restart hammerapp-web
+  "$NODE_BIN/pm2" save
+  # Register PM2 startup script (runs as root, which owns the pm2 daemon)
+  "$NODE_BIN/pm2" startup systemd | tail -1 | bash
   echo "      PM2 process saved and startup configured"
 fi
 
@@ -154,5 +154,5 @@ echo "  2. Run DB migrations:  sudo npx prisma migrate deploy"
 echo "  3. Run seed:           sudo npx prisma db seed"
 echo "  4. Check app status:   sudo pm2 status"
 echo "  5. Check logs:         sudo pm2 logs hammerapp-web"
-echo "  6. Health check:       curl https://dev.hammerapp.in/api/health"
+echo "  6. Health check:       curl https://admin.hammerapp.in/api/health"
 echo "══════════════════════════════════════════════"
