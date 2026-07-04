@@ -26,11 +26,10 @@ function corsHeaders(origin: string | null): Record<string, string> {
 }
 
 export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
   const origin = req.headers.get("origin");
 
   // ── CORS preflight ───────────────────────────────────────
-  if (req.method === "OPTIONS" && pathname.startsWith("/api/")) {
+  if (req.method === "OPTIONS") {
     return new NextResponse(null, {
       status: 204,
       headers: corsHeaders(origin),
@@ -40,17 +39,15 @@ export function middleware(req: NextRequest) {
   const res = NextResponse.next();
 
   // ── CORS actual request ──────────────────────────────────
-  if (pathname.startsWith("/api/")) {
-    const ch = corsHeaders(origin);
-    for (const [k, v] of Object.entries(ch)) {
-      res.headers.set(k, v);
-    }
+  const ch = corsHeaders(origin);
+  for (const [k, v] of Object.entries(ch)) {
+    res.headers.set(k, v);
   }
 
   return res;
 }
 
 export const config = {
-  // Run on API routes only (Edge-compatible — no Node.js globals here)
-  matcher: ["/api/:path*"],
+  // Only the mobile API needs CORS — NextAuth (/api/auth) is same-origin.
+  matcher: ["/api/technician/:path*", "/api/health"],
 };
