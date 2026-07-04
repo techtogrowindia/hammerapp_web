@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { StatusBadge } from "@/components/StatusBadge";
 import { KycStepCard } from "./KycStepCard";
-import { ArrowLeft, Phone, Mail, Calendar } from "lucide-react";
+import { ArrowLeft, Phone, Mail, Calendar, Pencil } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -57,13 +57,22 @@ export default async function TechnicianDetailPage({
 
   return (
     <div className="space-y-5 max-w-5xl">
-      <Link
-        href="/technicians"
-        className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to onboarding
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link
+          href="/technicians"
+          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to onboarding
+        </Link>
+        <Link
+          href={`/technicians/${id}/kyc`}
+          className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium px-4 py-2 transition-colors"
+        >
+          <Pencil className="h-4 w-4" />
+          Enter / Edit KYC Data
+        </Link>
+      </div>
 
       {/* Header */}
       <div className="bg-white rounded-xl border border-[var(--border)] p-6">

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { StatusBadge } from "@/components/StatusBadge";
-import { Search, ChevronRight } from "lucide-react";
+import { Search, ChevronRight, UserPlus } from "lucide-react";
 import type { KycStatus, Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -48,11 +48,20 @@ export default async function TechniciansPage({
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Technician Onboarding</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Review and verify technician KYC submissions.
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Technician Onboarding</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Review and verify technician KYC submissions.
+          </p>
+        </div>
+        <Link
+          href="/technicians/new"
+          className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium px-4 py-2 transition-colors shrink-0"
+        >
+          <UserPlus className="h-4 w-4" />
+          Add Technician
+        </Link>
       </div>
 
       {/* Filters */}

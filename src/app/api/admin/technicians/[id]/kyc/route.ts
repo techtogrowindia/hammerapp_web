@@ -3,13 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { recomputeKycStatus } from "@/lib/kyc";
 import { ok, fail, unauthorized, notFound, serverError } from "@/lib/api";
 import { saveUpload, UploadError, isMultipart } from "@/lib/upload";
-import type { KycStatus } from "@prisma/client";
+import type { Gender, CompanyType } from "@prisma/client";
 
-interface KycUpdate {
-  step: "profile" | "education" | "bank" | "company" | "document";
-  status?: KycStatus;
-  data?: Record<string, unknown>;
-}
+const GENDERS: Gender[] = ["MALE", "FEMALE", "OTHER"];
+const COMPANY_TYPES: CompanyType[] = [
+  "INDIVIDUAL",
+  "PROPRIETORSHIP",
+  "PARTNERSHIP",
+  "PRIVATE_LIMITED",
+  "LLP",
+];
 
 // PATCH /api/admin/technicians/{id}/kyc — admin submits/updates KYC data
 export async function PATCH(
@@ -58,7 +61,9 @@ export async function PATCH(
         const data = {
           fullName: fields.fullName || fields.full_name,
           dob: fields.dob ? new Date(fields.dob) : undefined,
-          gender: fields.gender as any,
+          gender: GENDERS.includes(fields.gender?.toUpperCase() as Gender)
+            ? (fields.gender!.toUpperCase() as Gender)
+            : undefined,
           bloodGroupId: fields.bloodGroupId || fields.blood_group_id,
           addressLine1: fields.addressLine1 || fields.address_line1,
           addressLine2: fields.addressLine2 || fields.address_line2,
@@ -111,8 +116,11 @@ export async function PATCH(
       }
 
       case "company": {
+        const companyTypeRaw = (fields.companyType || "INDIVIDUAL").toUpperCase();
         const data = {
-          companyType: (fields.companyType || "INDIVIDUAL") as any,
+          companyType: (COMPANY_TYPES.includes(companyTypeRaw as CompanyType)
+            ? companyTypeRaw
+            : "INDIVIDUAL") as CompanyType,
           companyName: fields.companyName || fields.company_name,
           gstNumber: (fields.gstNumber || fields.gst_number)?.toUpperCase(),
           panNumber: (fields.panNumber || fields.pan_number)?.toUpperCase(),

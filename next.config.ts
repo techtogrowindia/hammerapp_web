@@ -32,8 +32,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Expose the API only — do not generate an output for the static homepage in prod
-  // (remove this if you add an admin UI later and need the full SSR page)
+  // Pin the workspace root to this project (avoids multi-lockfile ambiguity warning)
+  turbopack: {
+    root: __dirname,
+  },
 
   // Restrict server-side body size (file uploads go through multipart, not raw body)
   experimental: {
