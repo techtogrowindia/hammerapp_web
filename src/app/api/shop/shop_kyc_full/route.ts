@@ -6,6 +6,16 @@ import { prisma } from "@/lib/prisma";
 const base = process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ?? "/uploads";
 const fileUrl = (p: string | null) => (p ? `${base.replace(/\/$/, "")}/${p}` : null);
 
+// Map the FirmType enum to the exact label the app's dropdown uses (pre-fill).
+const firmTypeLabel = (ft: string | null): string | null => {
+  switch (ft) {
+    case "PROPRIETORSHIP": return "proprietorship";
+    case "PARTNERSHIP": return "partnership";
+    case "PRIVATE_LIMITED": return "private limited";
+    default: return null;
+  }
+};
+
 // GET /api/shop/shop_kyc_full — aggregate of every KYC section (app pre-fills forms).
 export async function GET(req: NextRequest) {
   const shop = await getAuthShop(req);
@@ -35,7 +45,7 @@ export async function GET(req: NextRequest) {
             blood_group: personal.bloodGroup?.name ?? null,
             aadhar_number: personal.aadharNumber,
             pan_number: personal.panNumber,
-            firm_type: personal.firmType ? personal.firmType.toLowerCase() : null,
+            firm_type: firmTypeLabel(personal.firmType),
             business_pan: personal.businessPan,
             address: personal.address,
             city_town_village: personal.cityTownVillage,

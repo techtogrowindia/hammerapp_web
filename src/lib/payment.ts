@@ -77,19 +77,75 @@ export async function createRegistrationOrder(
  * Verifies a Razorpay payment signature. In stub mode (no secret) any
  * non-empty paymentId is accepted so the flow can complete in dev.
  */
-export function verifyPaymentSignature(params: {
-  orderId: string;
-  paymentId: string;
-  signature?: string;
-}): boolean {
-  const { orderId, paymentId, signature } = params;
-  if (!paymentId) return false;
-  if (!isPaymentLive()) return true; // stub accepts
-
-  if (!signature) return false;
+function verifySignature(orderId: string, paymentId: string, signature: string): boolean {
   const expected = crypto
     .createHmac("sha256", KEY_SECRET!)
     .update(`${orderId}|${paymentId}`)
     .digest("hex");
-  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+  const a = Buffer.from(expected);
+  const b = Buffer.from(signature);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+export interface PaymentVerifyResult {
+  ok: boolean;
+  reason?: string;
+}
+
+/**
+ * Verifies a Razorpay payment. The mobile app does NOT send `razorpay_signature`,
+ * so we can't rely on HMAC alone. Strategy:
+ *   1. Stub mode (no keys)  → accept any non-empty paymentId (dev/testing).
+ *   2. Signature present    → verify HMAC (fast, no network round-trip).
+ *   3. Otherwise (app case) → fetch the payment from Razorpay's API and confirm
+ *      it is captured/authorized, belongs to the expected order, and — when
+ *      known — matches the expected amount.
+ */
+export async function verifyPayment(params: {
+  orderId: string; // razorpay_order_id
+  paymentId: string; // razorpay_payment_id
+  signature?: string;
+  expectedAmount?: number; // paise
+}): Promise<PaymentVerifyResult> {
+  const { orderId, paymentId, signature, expectedAmount } = params;
+
+  if (!paymentId) return { ok: false, reason: "missing payment id" };
+  if (!isPaymentLive()) return { ok: true }; // stub accepts
+
+  // Fast path: honour a signature if the client ever provides one.
+  if (signature) {
+    return verifySignature(orderId, paymentId, signature)
+      ? { ok: true }
+      : { ok: false, reason: "signature mismatch" };
+  }
+
+  // App path: verify by fetching the payment from Razorpay directly.
+  const auth = Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64");
+  let res: Response;
+  try {
+    res = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}`, {
+      headers: { Authorization: `Basic ${auth}` },
+    });
+  } catch (err) {
+    console.error("[payment] Razorpay fetch failed", err);
+    return { ok: false, reason: "razorpay unreachable" };
+  }
+  if (!res.ok) return { ok: false, reason: `razorpay status ${res.status}` };
+
+  const p = (await res.json()) as {
+    status?: string;
+    order_id?: string;
+    amount?: number;
+  };
+
+  if (p.status !== "captured" && p.status !== "authorized") {
+    return { ok: false, reason: `payment status ${p.status}` };
+  }
+  if (orderId && p.order_id && p.order_id !== orderId) {
+    return { ok: false, reason: "order mismatch" };
+  }
+  if (expectedAmount != null && p.amount != null && p.amount !== expectedAmount) {
+    return { ok: false, reason: "amount mismatch" };
+  }
+  return { ok: true };
 }

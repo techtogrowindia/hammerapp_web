@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { getAuthShop } from "@/lib/auth-mobile";
 import { shopOk, shopFail, shopUnauthorized, shopNotFound, shopServerError } from "@/lib/api-shop";
 import { prisma } from "@/lib/prisma";
-import { verifyPaymentSignature } from "@/lib/payment";
+import { verifyPayment } from "@/lib/payment";
 
 // POST /api/payment/payment-update
 // body: { order_id (int), razorpay_order_id, razorpay_payment_id, razorpay_signature? }
@@ -29,13 +29,15 @@ export async function POST(req: NextRequest) {
     const payment = await prisma.shopPayment.findUnique({ where: { id: orderId } });
     if (!payment || payment.shopId !== shop.id) return shopNotFound("Order not found");
 
-    const valid = verifyPaymentSignature({
+    const result = await verifyPayment({
       orderId: body.razorpay_order_id ?? payment.orderId ?? "",
       paymentId: body.razorpay_payment_id ?? "",
       signature: body.razorpay_signature,
+      expectedAmount: payment.amount,
     });
 
-    if (!valid) {
+    if (!result.ok) {
+      console.warn("[payment/payment-update] verification failed:", result.reason);
       await prisma.shopPayment.update({ where: { id: orderId }, data: { status: "FAILED" } });
       return shopFail("Payment verification failed", 400);
     }

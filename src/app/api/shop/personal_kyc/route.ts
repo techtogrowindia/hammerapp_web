@@ -14,6 +14,17 @@ function parseFirmType(raw?: string | null): FirmType | undefined {
   return undefined;
 }
 
+// Serialize the enum back to the exact label the app's dropdown uses so the
+// value pre-selects when editing an existing KYC.
+function firmTypeLabel(ft: FirmType | string | null): string | null {
+  switch (ft) {
+    case "PROPRIETORSHIP": return "proprietorship";
+    case "PARTNERSHIP": return "partnership";
+    case "PRIVATE_LIMITED": return "private limited";
+    default: return null;
+  }
+}
+
 async function resolveBloodGroupId(name?: string | null): Promise<string | undefined> {
   if (!name) return undefined;
   const bg = await prisma.bloodGroup.findUnique({ where: { name: name.trim() } });
@@ -110,7 +121,7 @@ function serialize(p: {
     blood_group: p.bloodGroup?.name ?? null,
     aadhar_number: p.aadharNumber,
     pan_number: p.panNumber,
-    firm_type: p.firmType ? p.firmType.toLowerCase() : null,
+    firm_type: firmTypeLabel(p.firmType),
     business_pan: p.businessPan,
     address: p.address,
     city_town_village: p.cityTownVillage,
