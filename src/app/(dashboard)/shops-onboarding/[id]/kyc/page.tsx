@@ -89,6 +89,8 @@ export default async function ShopKycEntryPage({
       docNumber: d.docNumber,
       hasFront: !!d.frontFile,
       hasBack: !!d.backFile,
+      frontFile: d.frontFile ?? null,
+      backFile: d.backFile ?? null,
     })),
   };
 

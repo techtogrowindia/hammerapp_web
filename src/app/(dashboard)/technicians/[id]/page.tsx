@@ -104,6 +104,9 @@ export default async function TechnicianDetailPage({
 
   const gstVerified = c?.gstVerified ?? false;
 
+  const aadhaarDoc = t.documents.find((d) => d.docType.toUpperCase().includes("AADHA"));
+  const aadhaarNumber = aadhaarDoc?.docNumber;
+
   return (
     <div className="space-y-5">
       {/* Top bar */}
@@ -216,14 +219,20 @@ export default async function TechnicianDetailPage({
             <Field label="Gender" value={p?.gender} />
             <Field label="Date of birth" value={fmtDate(p?.dob)} />
             <Field label="Blood group" value={p?.bloodGroup?.name} />
-            <Field label="Address" value={[p?.addressLine1, p?.addressLine2, p?.city, p?.state, p?.pincode].filter(Boolean).join(", ")} />
+            <Field label="Aadhaar No." value={aadhaarNumber} />
+            <Field label="PAN" value={c?.panNumber} />
+            <Field label="Address" value={[p?.addressLine1, p?.addressLine2].filter(Boolean).join(", ")} />
+            <Field label="City" value={p?.city} />
+            <Field label="State" value={p?.state} />
+            <Field label="Pincode" value={p?.pincode} />
             <Field label="Location" value={p?.location?.name} />
             <Field label="Bank" value={b?.bankName} />
             <Field label="Account no." value={b?.accountNumber} />
             <Field label="IFSC" value={b?.ifsc} />
+            <Field label="UPI ID" value={b?.upiId} />
             <Field label="Company" value={c?.companyName} />
             <Field label="GST" value={c?.gstNumber} />
-            <Field label="PAN" value={c?.panNumber} />
+            <Field label="Company type" value={c?.companyType} />
           </dl>
         </div>
       </div>

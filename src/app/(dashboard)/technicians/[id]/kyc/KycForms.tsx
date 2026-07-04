@@ -2,8 +2,36 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Loader2, Save, ChevronDown, CheckCircle2 } from "lucide-react";
+import { Loader2, Save, ChevronDown, CheckCircle2, ExternalLink } from "lucide-react";
 import { saveKycStep, type StepResult } from "./actions";
+
+const UPLOAD_BASE = "/uploads";
+
+function fileUrl(path?: string | null): string | null {
+  if (!path) return null;
+  return `${UPLOAD_BASE}/${path.replace(/^\/+/, "")}`;
+}
+function isImage(p: string): boolean {
+  return /\.(jpe?g|png|webp|gif|bmp|heic)$/i.test(p);
+}
+
+/** Shows an inline thumbnail if the path is an image, or a "View" link for PDFs. */
+function FilePreview({ path }: { path?: string | null }) {
+  const url = fileUrl(path);
+  if (!url || !path) return null;
+  if (isImage(path)) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={url} alt="Existing file" className="mt-2 max-h-36 rounded-lg border border-slate-200 object-contain bg-slate-50" />
+    );
+  }
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer"
+      className="mt-2 inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline">
+      <ExternalLink className="h-3 w-3" /> View existing file
+    </a>
+  );
+}
 
 interface Option { id: string; name: string }
 
@@ -43,8 +71,15 @@ interface ExistingData {
     panNumber: string;
     registrationNumber: string;
   };
-  services: { name: string; certificate: string | null; hasFile: boolean }[];
-  documents: { docType: string; docNumber: string | null; hasFront: boolean; hasBack: boolean }[];
+  services: { name: string; certificate: string | null; hasFile: boolean; fileUrl: string | null }[];
+  documents: {
+    docType: string;
+    docNumber: string | null;
+    hasFront: boolean;
+    hasBack: boolean;
+    frontFile: string | null;
+    backFile: string | null;
+  }[];
 }
 
 interface Props {
@@ -124,9 +159,34 @@ function StepSection({
   );
 }
 
-function FileHint({ has, label = "A file is already on record" }: { has: boolean; label?: string }) {
-  if (!has) return null;
-  return <p className="text-xs text-green-600 mt-1">✓ {label}. Choose a new file only to replace it.</p>;
+function FileInput({
+  name,
+  label,
+  existingPath,
+  accept = "image/*,application/pdf",
+  hint,
+}: {
+  name: string;
+  label: string;
+  existingPath?: string | null;
+  accept?: string;
+  hint?: string;
+}) {
+  const url = fileUrl(existingPath);
+  return (
+    <div>
+      <label className={labelCls}>{label}</label>
+      {url && existingPath && (
+        <div className="mb-2">
+          <FilePreview path={existingPath} />
+          <p className="text-xs text-green-600 mt-1">
+            ✓ {hint ?? "A file is already on record"}. Choose a new file to replace it.
+          </p>
+        </div>
+      )}
+      <input name={name} type="file" accept={accept} className={inputCls} />
+    </div>
+  );
 }
 
 export function KycForms({ technicianId, bloodGroups, services, locations, certificates, existing }: Props) {
@@ -171,9 +231,7 @@ export function KycForms({ technicianId, bloodGroups, services, locations, certi
             </select>
           </div>
           <div className="sm:col-span-2">
-            <label className={labelCls}>Profile Photo</label>
-            <input name="profilePhoto" type="file" accept="image/*" className={inputCls} />
-            <FileHint has={!!pf.profilePhoto} label="A photo is already on record" />
+            <FileInput name="profilePhoto" label="Profile Photo" existingPath={pf.profilePhoto} accept="image/*" hint="A photo is already on record" />
           </div>
         </div>
       </StepSection>
@@ -185,9 +243,7 @@ export function KycForms({ technicianId, bloodGroups, services, locations, certi
           <div><label className={labelCls}>Institution</label><input name="institution" defaultValue={ed.institution} className={inputCls} /></div>
           <div><label className={labelCls}>Year of Passing</label><input name="yearOfPassing" inputMode="numeric" defaultValue={ed.yearOfPassing} placeholder="2018" className={inputCls} /></div>
           <div>
-            <label className={labelCls}>Certificate File</label>
-            <input name="certificateFile" type="file" accept="image/*,application/pdf" className={inputCls} />
-            <FileHint has={!!ed.certificateFile} label="A certificate is already on record" />
+            <FileInput name="certificateFile" label="Certificate File" existingPath={ed.certificateFile} hint="A certificate is already on record" />
           </div>
         </div>
       </StepSection>
@@ -195,17 +251,20 @@ export function KycForms({ technicianId, bloodGroups, services, locations, certi
       {/* 3. Services */}
       <StepSection title="3 · Services KYC" step="services" technicianId={technicianId}>
         {existing.services.length > 0 && (
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm">
-            <p className="font-medium text-slate-600 mb-1.5">Already added</p>
-            <ul className="space-y-1">
-              {existing.services.map((s, i) => (
-                <li key={i} className="text-slate-600">
-                  • {s.name}
-                  {s.certificate ? ` — ${s.certificate}` : ""}
-                  {s.hasFile ? " (file attached)" : ""}
-                </li>
-              ))}
-            </ul>
+          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm space-y-3">
+            <p className="font-medium text-slate-600">Already added</p>
+            {existing.services.map((s, i) => (
+              <div key={i} className="space-y-1">
+                <p className="text-slate-700">
+                  • {s.name}{s.certificate ? ` — ${s.certificate}` : ""}
+                </p>
+                {s.fileUrl && (
+                  <div className="pl-3">
+                    <FilePreview path={s.fileUrl} />
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -223,7 +282,9 @@ export function KycForms({ technicianId, bloodGroups, services, locations, certi
               {certificates.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div className="sm:col-span-2"><label className={labelCls}>Certificate File</label><input name="certificateFile" type="file" accept="image/*,application/pdf" className={inputCls} /></div>
+          <div className="sm:col-span-2">
+            <FileInput name="certificateFile" label="Certificate File" existingPath={null} />
+          </div>
         </div>
         <p className="text-xs text-slate-400">Add one service at a time. Selecting a category already added will update it.</p>
       </StepSection>
@@ -238,9 +299,7 @@ export function KycForms({ technicianId, bloodGroups, services, locations, certi
           <div><label className={labelCls}>Branch</label><input name="branch" defaultValue={bk.branch} className={inputCls} /></div>
           <div><label className={labelCls}>UPI ID</label><input name="upiId" defaultValue={bk.upiId} className={inputCls} /></div>
           <div className="sm:col-span-2">
-            <label className={labelCls}>Passbook / Cheque</label>
-            <input name="passbookFile" type="file" accept="image/*,application/pdf" className={inputCls} />
-            <FileHint has={!!bk.passbookFile} label="A passbook file is already on record" />
+            <FileInput name="passbookFile" label="Passbook / Cheque" existingPath={bk.passbookFile} hint="A passbook file is already on record" />
           </div>
         </div>
       </StepSection>
@@ -268,18 +327,29 @@ export function KycForms({ technicianId, bloodGroups, services, locations, certi
       {/* 6. Documents */}
       <StepSection title="6 · Document KYC" step="document" technicianId={technicianId}>
         {existing.documents.length > 0 && (
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm">
-            <p className="font-medium text-slate-600 mb-1.5">Already added</p>
-            <ul className="space-y-1">
-              {existing.documents.map((d, i) => (
-                <li key={i} className="text-slate-600">
-                  • {d.docType}
-                  {d.docNumber ? ` — ${d.docNumber}` : ""}
-                  {d.hasFront ? " (front" : ""}
-                  {d.hasFront && d.hasBack ? " + back)" : d.hasFront ? ")" : ""}
-                </li>
-              ))}
-            </ul>
+          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm space-y-4">
+            <p className="font-medium text-slate-600">Already added</p>
+            {existing.documents.map((d, i) => (
+              <div key={i}>
+                <p className="text-slate-700 font-medium">
+                  {d.docType}{d.docNumber ? ` — ${d.docNumber}` : ""}
+                </p>
+                <div className="flex gap-4 mt-1 flex-wrap">
+                  {d.frontFile && (
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Front</p>
+                      <FilePreview path={d.frontFile} />
+                    </div>
+                  )}
+                  {d.backFile && (
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Back</p>
+                      <FilePreview path={d.backFile} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

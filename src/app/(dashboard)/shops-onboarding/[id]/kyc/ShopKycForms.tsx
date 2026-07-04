@@ -2,8 +2,54 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { Loader2, Save, ChevronDown, CheckCircle2 } from "lucide-react";
+import { Loader2, Save, ChevronDown, CheckCircle2, ExternalLink } from "lucide-react";
 import { saveShopKycStep, type StepResult } from "./actions";
+
+const UPLOAD_BASE = "/uploads";
+
+function fileUrl(path?: string | null): string | null {
+  if (!path) return null;
+  return `${UPLOAD_BASE}/${path.replace(/^\/+/, "")}`;
+}
+function isImage(p: string): boolean {
+  return /\.(jpe?g|png|webp|gif|bmp|heic)$/i.test(p);
+}
+
+function FilePreview({ path }: { path?: string | null }) {
+  const url = fileUrl(path);
+  if (!url || !path) return null;
+  if (isImage(path)) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={url} alt="Existing file" className="mt-2 max-h-36 rounded-lg border border-slate-200 object-contain bg-slate-50" />
+    );
+  }
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer"
+      className="mt-2 inline-flex items-center gap-1 text-xs text-[var(--accent)] hover:underline">
+      <ExternalLink className="h-3 w-3" /> View existing file
+    </a>
+  );
+}
+
+function FileInput({
+  name, label, existingPath, accept = "image/*,application/pdf", hint,
+}: {
+  name: string; label: string; existingPath?: string | null; accept?: string; hint?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      {existingPath && (
+        <div className="mb-2">
+          <FilePreview path={existingPath} />
+          <p className="text-xs text-green-600 mt-1">✓ {hint ?? "A file is already on record"}. Choose a new file to replace it.</p>
+        </div>
+      )}
+      <input name={name} type="file" accept={accept} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]" />
+    </div>
+  );
+}
 
 interface Option { id: string; name: string }
 interface ProductOption { id: number; name: string; subcategories: { id: number; name: string }[] }
@@ -25,7 +71,11 @@ interface ExistingData {
     ifsc: string; branch: string; upiId: string; passbookFile: string;
   };
   products: { name: string; subcategory: string | null }[];
-  documents: { docType: string; docNumber: string | null; hasFront: boolean; hasBack: boolean }[];
+  documents: {
+    docType: string; docNumber: string | null;
+    hasFront: boolean; hasBack: boolean;
+    frontFile: string | null; backFile: string | null;
+  }[];
 }
 
 interface Props {
@@ -42,11 +92,8 @@ const labelCls = "block text-sm font-medium text-slate-700 mb-1";
 function SaveButton() {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-60 text-white font-medium px-4 py-2 text-sm transition-colors"
-    >
+    <button type="submit" disabled={pending}
+      className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] disabled:opacity-60 text-white font-medium px-4 py-2 text-sm transition-colors">
       {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
       {pending ? "Saving..." : "Save Step"}
     </button>
@@ -63,11 +110,8 @@ function StepSection({
 
   return (
     <div className="bg-white rounded-xl border border-[var(--border)] overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50"
-      >
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-5 py-3.5 hover:bg-slate-50">
         <span className="font-semibold text-slate-800">{title}</span>
         <div className="flex items-center gap-2">
           {result?.ok && <CheckCircle2 className="h-4 w-4 text-green-500" />}
@@ -90,11 +134,6 @@ function StepSection({
       )}
     </div>
   );
-}
-
-function FileHint({ has, label }: { has: boolean; label: string }) {
-  if (!has) return null;
-  return <p className="text-xs text-green-600 mt-1">✓ {label} on record. Choose a new file only to replace it.</p>;
 }
 
 export function ShopKycForms({ shopId, bloodGroups, products, existing }: Props) {
@@ -134,9 +173,7 @@ export function ShopKycForms({ shopId, bloodGroups, products, existing }: Props)
           <div><label className={labelCls}>District</label><input name="district" defaultValue={pf.district} className={inputCls} /></div>
           <div><label className={labelCls}>Pincode</label><input name="pincode" inputMode="numeric" defaultValue={pf.pincode} className={inputCls} /></div>
           <div className="sm:col-span-2">
-            <label className={labelCls}>Profile Photo</label>
-            <input name="profilePhoto" type="file" accept="image/*" className={inputCls} />
-            <FileHint has={!!pf.profilePhoto} label="A photo is" />
+            <FileInput name="profilePhoto" label="Profile Photo" existingPath={pf.profilePhoto} accept="image/*" hint="A photo is already on record" />
           </div>
         </div>
       </StepSection>
@@ -145,13 +182,8 @@ export function ShopKycForms({ shopId, bloodGroups, products, existing }: Props)
       <StepSection title="2 · Partners (partnership / private limited)" step="partners" shopId={shopId}>
         <div>
           <label className={labelCls}>Partner Names</label>
-          <textarea
-            name="partners"
-            rows={4}
-            defaultValue={existing.partners.join("\n")}
-            placeholder="One partner name per line"
-            className={inputCls}
-          />
+          <textarea name="partners" rows={4} defaultValue={existing.partners.join("\n")}
+            placeholder="One partner name per line" className={inputCls} />
           <p className="text-xs text-slate-400 mt-1">Only required for partnership / private limited firms. One name per line.</p>
         </div>
       </StepSection>
@@ -227,9 +259,7 @@ export function ShopKycForms({ shopId, bloodGroups, products, existing }: Props)
           <div><label className={labelCls}>Branch</label><input name="branch" defaultValue={bk.branch} className={inputCls} /></div>
           <div><label className={labelCls}>UPI ID</label><input name="upiId" defaultValue={bk.upiId} className={inputCls} /></div>
           <div className="sm:col-span-2">
-            <label className={labelCls}>Passbook / Statement</label>
-            <input name="passbookFile" type="file" accept="image/*,application/pdf" className={inputCls} />
-            <FileHint has={!!bk.passbookFile} label="A passbook file is" />
+            <FileInput name="passbookFile" label="Passbook / Statement" existingPath={bk.passbookFile} hint="A passbook file is already on record" />
           </div>
         </div>
       </StepSection>
@@ -237,16 +267,29 @@ export function ShopKycForms({ shopId, bloodGroups, products, existing }: Props)
       {/* 6. Documents */}
       <StepSection title="6 · Document KYC" step="document" shopId={shopId}>
         {existing.documents.length > 0 && (
-          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm">
-            <p className="font-medium text-slate-600 mb-1.5">Already added</p>
-            <ul className="space-y-1">
-              {existing.documents.map((d, i) => (
-                <li key={i} className="text-slate-600">
-                  • {d.docType.replace(/_/g, " ")}{d.docNumber ? ` — ${d.docNumber}` : ""}
-                  {d.hasFront ? " (front" : ""}{d.hasFront && d.hasBack ? " + back)" : d.hasFront ? ")" : ""}
-                </li>
-              ))}
-            </ul>
+          <div className="rounded-lg bg-slate-50 border border-slate-200 p-3 text-sm space-y-4">
+            <p className="font-medium text-slate-600">Already added</p>
+            {existing.documents.map((d, i) => (
+              <div key={i}>
+                <p className="text-slate-700 font-medium">
+                  {d.docType.replace(/_/g, " ")}{d.docNumber ? ` — ${d.docNumber}` : ""}
+                </p>
+                <div className="flex gap-4 mt-1 flex-wrap">
+                  {d.frontFile && (
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Front</p>
+                      <FilePreview path={d.frontFile} />
+                    </div>
+                  )}
+                  {d.backFile && (
+                    <div>
+                      <p className="text-xs text-slate-500 mb-1">Back</p>
+                      <FilePreview path={d.backFile} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

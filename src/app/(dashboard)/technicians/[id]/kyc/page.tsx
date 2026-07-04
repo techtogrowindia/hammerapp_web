@@ -81,12 +81,15 @@ export default async function KycEntryPage({
       name: s.serviceCategory.name,
       certificate: s.certificate?.name ?? null,
       hasFile: !!s.certificateFile,
+      fileUrl: s.certificateFile ?? null,
     })),
     documents: tech.documents.map((d) => ({
       docType: d.docType,
       docNumber: d.docNumber,
       hasFront: !!d.frontFile,
       hasBack: !!d.backFile,
+      frontFile: d.frontFile ?? null,
+      backFile: d.backFile ?? null,
     })),
   };
 
