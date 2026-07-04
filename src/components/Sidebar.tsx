@@ -87,16 +87,16 @@ export function Sidebar({
 
   return (
     <aside className="w-64 shrink-0 bg-[var(--sidebar)] text-[var(--sidebar-foreground)] flex flex-col h-screen sticky top-0">
-      <div className="flex items-center gap-2 px-4 h-16 border-b border-white/10">
+      <div className="flex items-center gap-2.5 px-4 h-16 border-b border-white/10">
         {logo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logo} alt={siteName ?? "Hammer"} className="h-10 max-w-[180px] object-contain" />
+          <img src={logo} alt={siteName ?? "Hammer"} className="h-9 w-9 rounded object-contain shrink-0" />
         ) : (
-          <>
-            <Hammer className="h-6 w-6 text-[var(--accent)]" />
-            <span className="text-white font-bold text-lg tracking-tight">{siteName ?? "Hammer"}</span>
-          </>
+          <Hammer className="h-6 w-6 text-[var(--accent)] shrink-0" />
         )}
+        <span className="text-white font-bold text-base tracking-tight leading-tight">
+          {siteName ?? "Hammer App"}
+        </span>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-6">
