@@ -41,7 +41,6 @@ export function SettingsForm({ settings }: Props) {
     <div className="max-w-5xl">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-600 mt-1">Manage initial deposit and payment gateway configuration.</p>
       </div>
 
       {state && (
