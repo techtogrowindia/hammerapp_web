@@ -159,7 +159,7 @@ export function SettingsForm({ settings }: Props) {
               name="webhook.team_member"
               defaultValue={settings["webhook.team_member"]}
               placeholder="https://example.com/webhook/team-member-created"
-              helper="When a technician creates a child ID (team member), a POST request is sent to this URL with JSON: {\"name\":\"...\", \"mobile\":\"...\"}"
+              helper="When a technician creates a child ID (team member), a POST request is sent to this URL with JSON like: {'name':'...', 'mobile':'...'}"
               type="url"
             />
             <Field
@@ -167,7 +167,7 @@ export function SettingsForm({ settings }: Props) {
               name="webhook.referral"
               defaultValue={settings["webhook.referral"]}
               placeholder="https://example.com/webhook/referral"
-              helper="When a technician, shop, or customer submits a referral, a POST is sent with JSON: {\"mobile\":\"...\", \"referrer_name\":\"...\"}. Referral status is pending until the mobile registers as a customer."
+              helper="When a technician, shop, or customer submits a referral, a POST is sent with JSON like: {'mobile':'...', 'referrer_name':'...'}. Referral status is pending until the mobile registers."
               type="url"
             />
             <Field
@@ -175,7 +175,7 @@ export function SettingsForm({ settings }: Props) {
               name="webhook.customer_otp"
               defaultValue={settings["webhook.customer_otp"]}
               placeholder="https://example.com/webhook/customer-otp"
-              helper="When a customer requests login/register OTP (POST /api/customer/send-otp), a POST is sent with JSON: {\"mobile\":\"...\",\"otp\":\"1234\"}."
+              helper="When a customer requests login/register OTP, a POST is sent with JSON like: {'mobile':'...', 'otp':'1234'}."
               type="url"
             />
           </>
