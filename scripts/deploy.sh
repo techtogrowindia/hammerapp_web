@@ -32,7 +32,9 @@ log "      HEAD: $(git rev-parse --short HEAD) — $(git log -1 --pretty=%s)"
 
 # ── 2. Install dependencies ──────────────────────────────────
 log "[2/5] npm install..."
-sudo "$NPM" install --omit=dev --prefer-offline 2>&1 | tail -5 | tee -a "$LOG_FILE"
+# Dev deps required at build time (tailwindcss, postcss, typescript)
+sudo env PATH=/root/.nvm/versions/node/v20.20.2/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+  "$NPM" install --prefer-offline 2>&1 | tail -5 | tee -a "$LOG_FILE"
 
 # ── 3. Database migrations ───────────────────────────────────
 log "[3/5] prisma migrate deploy..."
