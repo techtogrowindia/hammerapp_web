@@ -3,25 +3,44 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { StatusBadge } from "@/components/StatusBadge";
 import { KycStepCard } from "./KycStepCard";
-import { ArrowLeft, Phone, Mail, Calendar, Pencil } from "lucide-react";
+import { DocumentViewer, type DocFile } from "./DocumentViewer";
+import { ArrowLeft, Phone, Mail, Calendar, Pencil, CheckCircle2, Circle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-const UPLOAD_BASE = process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ?? "/uploads";
+// Admin panel loads files same-origin via NGINX (/uploads → /var/www/hammer-uploads).
+const UPLOAD_BASE = "/uploads";
 
-function fileLink(path?: string | null) {
-  if (!path) return null;
-  const url = `${UPLOAD_BASE.replace(/\/$/, "")}/${path}`;
-  return (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">
-      View file
-    </a>
-  );
+function fileUrl(path?: string | null) {
+  return path ? `${UPLOAD_BASE}/${path.replace(/^\/+/, "")}` : null;
 }
-
+function isImagePath(p: string) {
+  return /\.(jpe?g|png|webp|gif|bmp|heic)$/i.test(p);
+}
 function fmtDate(d?: Date | null) {
   return d ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : null;
 }
+
+/** Human label for a raw docType + side. */
+function docLabel(docType: string, side: "front" | "back"): string {
+  const t = docType.toUpperCase();
+  if (t.includes("AADHA")) return side === "front" ? "Aadhar Front" : "Aadhar Back";
+  if (t === "PAN" || t.includes("PAN")) return "PAN Card";
+  if (t.includes("LICENSE") || t.includes("LICENCE") || t.includes("DRIVING"))
+    return side === "front" ? "License Front" : "License Back";
+  if (t === "GST") return "GST";
+  if (t.includes("COMPANY") || t.includes("SHOP")) return "Company Photo";
+  const pretty = docType.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+  return side === "front" ? pretty : `${pretty} (Back)`;
+}
+
+const STEP_LABELS = [
+  { key: "profile", label: "Profile KYC" },
+  { key: "services", label: "Services KYC" },
+  { key: "bank", label: "Bank KYC" },
+  { key: "company", label: "Company KYC" },
+  { key: "document", label: "Document KYC" },
+] as const;
 
 export default async function TechnicianDetailPage({
   params,
@@ -49,76 +68,164 @@ export default async function TechnicianDetailPage({
   const b = t.bankKyc;
   const c = t.companyKyc;
 
-  // Services step status = worst-case across the join rows (simple: first or PENDING)
-  const servicesStatus = t.serviceCategories.length
-    ? t.serviceCategories[0].status
-    : "NOT_STARTED";
+  const servicesStatus = t.serviceCategories.length ? t.serviceCategories[0].status : "NOT_STARTED";
   const documentsStatus = t.documents.length ? t.documents[0].status : "NOT_STARTED";
 
+  const stepStatus: Record<string, string> = {
+    profile: p?.status ?? "NOT_STARTED",
+    services: servicesStatus,
+    bank: b?.status ?? "NOT_STARTED",
+    company: c?.status ?? "NOT_STARTED",
+    document: documentsStatus,
+  };
+
+  // ── Assemble the uploaded-documents list for the viewer ──
+  const docs: DocFile[] = [];
+  const push = (label: string, path?: string | null) => {
+    const url = fileUrl(path);
+    if (url && path) docs.push({ key: `${label}-${docs.length}`, label, url, isImage: isImagePath(path) });
+  };
+
+  push("Profile Photo", p?.profilePhoto);
+  for (const d of t.documents) {
+    push(docLabel(d.docType, "front"), d.frontFile);
+    if (d.backFile) push(docLabel(d.docType, "back"), d.backFile);
+  }
+  push("Bank Passbook", b?.passbookFile);
+  push("Signature", t.signature?.file);
+  // Service certificates → one tab per file, numbered.
+  const certs = t.serviceCategories.filter((s) => s.certificateFile);
+  certs.forEach((s, i) => {
+    const name = s.certificate?.name ?? s.serviceCategory.name;
+    push(certs.length > 1 ? `${name} (File ${i + 1})` : name, s.certificateFile);
+  });
+
+  const gstVerified = c?.gstVerified ?? false;
+
   return (
-    <div className="space-y-5 max-w-5xl">
+    <div className="space-y-5">
+      {/* Top bar */}
       <div className="flex items-center justify-between">
-        <Link
-          href="/technicians"
-          className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to onboarding
+        <Link href="/technicians" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700">
+          <ArrowLeft className="h-4 w-4" /> Back to Technicians
         </Link>
-        <Link
-          href={`/technicians/${id}/kyc`}
-          className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium px-4 py-2 transition-colors"
-        >
-          <Pencil className="h-4 w-4" />
-          Enter / Edit KYC Data
+        <Link href={`/technicians/${id}/kyc`}
+          className="inline-flex items-center gap-2 rounded-lg bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white text-sm font-medium px-4 py-2 transition-colors">
+          <Pencil className="h-4 w-4" /> Enter / Edit KYC Data
         </Link>
       </div>
 
-      {/* Header */}
-      <div className="bg-white rounded-xl border border-[var(--border)] p-6">
-        <div className="flex items-start justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="h-16 w-16 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-2xl font-bold">
+      {/* Header: profile card + legal status */}
+      <div className="bg-white rounded-xl border border-[var(--border)] p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Profile */}
+        <div className="flex flex-col items-center justify-center text-center border-r-0 lg:border-r border-[var(--border)] lg:pr-6">
+          {fileUrl(p?.profilePhoto) && isImagePath(p?.profilePhoto ?? "") ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fileUrl(p?.profilePhoto)!} alt="" className="h-24 w-24 rounded-full object-cover" />
+          ) : (
+            <div className="h-24 w-24 rounded-full bg-[var(--accent)] text-white flex items-center justify-center text-3xl font-bold">
               {(t.name ?? p?.fullName ?? "T").charAt(0).toUpperCase()}
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">
-                {t.name ?? p?.fullName ?? "Unnamed"}
-              </h1>
-              <p className="font-mono text-xs text-slate-500 mt-0.5">{t.code}</p>
-              <div className="flex items-center gap-4 mt-2 text-sm text-slate-600">
-                <span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" />{t.mobile}</span>
-                {t.email && <span className="inline-flex items-center gap-1"><Mail className="h-3.5 w-3.5" />{t.email}</span>}
-                <span className="inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{fmtDate(t.createdAt)}</span>
-              </div>
+          )}
+          <h1 className="text-xl font-bold text-slate-800 mt-3">{t.name ?? p?.fullName ?? "Unnamed"}</h1>
+          <p className="font-mono text-xs text-slate-500 mt-0.5">ID {t.code}</p>
+          <p className="inline-flex items-center gap-1.5 text-sm text-slate-600 mt-2">
+            <Phone className="h-3.5 w-3.5" /> {t.mobile}
+          </p>
+          {t.email && <p className="inline-flex items-center gap-1.5 text-sm text-slate-600 mt-1"><Mail className="h-3.5 w-3.5" />{t.email}</p>}
+          <p className="inline-flex items-center gap-1.5 text-xs text-slate-400 mt-1"><Calendar className="h-3 w-3" />Registered {fmtDate(t.createdAt)}</p>
+        </div>
+
+        {/* Legal status */}
+        <div>
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Legal Status (5 Steps)</h2>
+          <ul className="space-y-2">
+            {STEP_LABELS.map((s) => {
+              const st = stepStatus[s.key];
+              const done = st === "VERIFIED";
+              return (
+                <li key={s.key} className="flex items-center justify-between text-sm">
+                  <span className="inline-flex items-center gap-2 text-slate-700">
+                    {done ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Circle className="h-4 w-4 text-slate-300" />}
+                    {s.label}
+                  </span>
+                  <StatusBadge status={st} />
+                </li>
+              );
+            })}
+          </ul>
+
+          <div className="border-t border-[var(--border)] mt-4 pt-4 space-y-1.5 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">GST Verified</span>
+              <span className={gstVerified ? "text-green-600 font-medium" : "text-slate-400"}>{gstVerified ? "Yes" : "No / Not checked"}</span>
             </div>
-          </div>
-          <div className="flex flex-col items-end gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Account</span>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">Account status</span>
               <StatusBadge status={t.status} />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Overall KYC</span>
+            <div className="flex items-center justify-between">
+              <span className="text-slate-500">Overall KYC</span>
               <StatusBadge status={t.kycStatus} />
             </div>
           </div>
         </div>
       </div>
 
-      {/* KYC Legal Steps — claude.md §8 */}
-      <div className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-          KYC Legal Steps
-        </h2>
+      {/* Services chips */}
+      {t.serviceCategories.length > 0 && (
+        <div className="bg-white rounded-xl border border-[var(--border)] px-6 py-4">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Services</h2>
+          <div className="flex flex-wrap gap-2">
+            {t.serviceCategories.map((s) => (
+              <span key={s.id} className="text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                {s.serviceCategory.name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
-        {/* 1. Profile */}
-        <KycStepCard
-          technicianId={t.id}
-          step="profile"
-          title="1 · Profile KYC"
-          status={p?.status ?? "NOT_STARTED"}
-          remark={p?.remark}
+      {/* Documents + Personal */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Uploaded Documents */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-[var(--border)] p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-800">Uploaded Documents</h2>
+              <p className="text-xs text-slate-500 mt-0.5">{docs.length} uploaded</p>
+            </div>
+          </div>
+          <DocumentViewer documents={docs} />
+        </div>
+
+        {/* Personal panel */}
+        <div className="bg-white rounded-xl border border-[var(--border)] p-6">
+          <h2 className="text-lg font-semibold text-slate-800 mb-4">Personal</h2>
+          <dl className="space-y-3 text-sm">
+            <Field label="Name" value={p?.fullName ?? t.name} />
+            <Field label="Mobile" value={t.mobile} />
+            <Field label="Email" value={t.email} />
+            <Field label="Gender" value={p?.gender} />
+            <Field label="Date of birth" value={fmtDate(p?.dob)} />
+            <Field label="Blood group" value={p?.bloodGroup?.name} />
+            <Field label="Address" value={[p?.addressLine1, p?.addressLine2, p?.city, p?.state, p?.pincode].filter(Boolean).join(", ")} />
+            <Field label="Location" value={p?.location?.name} />
+            <Field label="Bank" value={b?.bankName} />
+            <Field label="Account no." value={b?.accountNumber} />
+            <Field label="IFSC" value={b?.ifsc} />
+            <Field label="Company" value={c?.companyName} />
+            <Field label="GST" value={c?.gstNumber} />
+            <Field label="PAN" value={c?.panNumber} />
+          </dl>
+        </div>
+      </div>
+
+      {/* KYC review actions (approve / reject / clarify per step) */}
+      <div className="space-y-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Review & Update KYC</h2>
+
+        <KycStepCard technicianId={t.id} step="profile" title="1 · Profile KYC" status={p?.status ?? "NOT_STARTED"} remark={p?.remark}
           fields={[
             { label: "Full name", value: p?.fullName },
             { label: "Date of birth", value: fmtDate(p?.dob) },
@@ -126,38 +233,15 @@ export default async function TechnicianDetailPage({
             { label: "Blood group", value: p?.bloodGroup?.name },
             { label: "Address", value: [p?.addressLine1, p?.addressLine2, p?.city, p?.state, p?.pincode].filter(Boolean).join(", ") },
             { label: "Location", value: p?.location?.name },
-            { label: "Profile photo", value: fileLink(p?.profilePhoto) },
-          ]}
-        />
+          ]} />
 
-        {/* 2. Services */}
-        <KycStepCard
-          technicianId={t.id}
-          step="services"
-          title="2 · Services KYC"
-          status={servicesStatus}
-          fields={
-            t.serviceCategories.length
-              ? t.serviceCategories.map((s) => ({
-                  label: s.serviceCategory.name,
-                  value: (
-                    <span>
-                      {s.certificate?.name ?? "No certificate"}
-                      {s.certificateFile ? <> · {fileLink(s.certificateFile)}</> : null}
-                    </span>
-                  ),
-                }))
-              : []
-          }
-        />
+        <KycStepCard technicianId={t.id} step="services" title="2 · Services KYC" status={servicesStatus}
+          fields={t.serviceCategories.map((s) => ({
+            label: s.serviceCategory.name,
+            value: s.certificate?.name ?? "No certificate",
+          }))} />
 
-        {/* 3. Bank */}
-        <KycStepCard
-          technicianId={t.id}
-          step="bank"
-          title="3 · Bank KYC"
-          status={b?.status ?? "NOT_STARTED"}
-          remark={b?.remark}
+        <KycStepCard technicianId={t.id} step="bank" title="3 · Bank KYC" status={b?.status ?? "NOT_STARTED"} remark={b?.remark}
           fields={[
             { label: "Account holder", value: b?.accountHolder },
             { label: "Account number", value: b?.accountNumber },
@@ -165,55 +249,32 @@ export default async function TechnicianDetailPage({
             { label: "Bank", value: b?.bankName },
             { label: "Branch", value: b?.branch },
             { label: "UPI ID", value: b?.upiId },
-            { label: "Passbook", value: fileLink(b?.passbookFile) },
-          ]}
-        />
+          ]} />
 
-        {/* 4. Company */}
-        <KycStepCard
-          technicianId={t.id}
-          step="company"
-          title="4 · Company KYC"
-          status={c?.status ?? "NOT_STARTED"}
-          remark={c?.remark}
+        <KycStepCard technicianId={t.id} step="company" title="4 · Company KYC" status={c?.status ?? "NOT_STARTED"} remark={c?.remark}
           fields={[
             { label: "Company type", value: c?.companyType },
             { label: "Company name", value: c?.companyName },
             { label: "GST number", value: c?.gstNumber ? `${c.gstNumber}${c.gstVerified ? " ✓" : ""}` : null },
             { label: "PAN", value: c?.panNumber },
             { label: "Registration no.", value: c?.registrationNumber },
-          ]}
-        />
+          ]} />
 
-        {/* 5. Documents */}
-        <KycStepCard
-          technicianId={t.id}
-          step="document"
-          title="5 · Document KYC"
-          status={documentsStatus}
-          fields={
-            t.documents.length
-              ? t.documents.map((d) => ({
-                  label: `${d.docType}${d.docNumber ? ` (${d.docNumber})` : ""}`,
-                  value: (
-                    <span className="flex gap-2">
-                      {fileLink(d.frontFile) ?? "—"}
-                      {d.backFile ? <>· {fileLink(d.backFile)}</> : null}
-                    </span>
-                  ),
-                }))
-              : []
-          }
-        />
-
-        {/* Signature (informational) */}
-        {t.signature && (
-          <div className="bg-white rounded-xl border border-[var(--border)] px-5 py-4 flex items-center justify-between">
-            <span className="text-sm font-medium text-slate-700">Signature</span>
-            {fileLink(t.signature.file)}
-          </div>
-        )}
+        <KycStepCard technicianId={t.id} step="document" title="5 · Document KYC" status={documentsStatus}
+          fields={t.documents.map((d) => ({
+            label: `${d.docType}${d.docNumber ? ` (${d.docNumber})` : ""}`,
+            value: `${d.frontFile ? "Front ✓" : "—"}${d.backFile ? " · Back ✓" : ""}`,
+          }))} />
       </div>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value?: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs uppercase tracking-wide text-slate-400">{label}</dt>
+      <dd className="text-slate-700 mt-0.5">{value || "—"}</dd>
     </div>
   );
 }
