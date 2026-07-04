@@ -1,0 +1,347 @@
+// Hammer App — Prisma schema
+// Phase 1: Technician onboarding (auth + 7-step KYC) + admin master data.
+// See claude.md for the full data contract.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────
+
+enum KycStatus {
+  NOT_STARTED
+  PENDING
+  VERIFIED
+  NEED_CLARIFICATION
+  NOT_COMPLETED
+  REJECTED
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  TERMINATED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum CompanyType {
+  INDIVIDUAL
+  PROPRIETORSHIP
+  PARTNERSHIP
+  PRIVATE_LIMITED
+  LLP
+}
+
+// ─────────────────────────────────────────────────────────────
+// Technician (core mobile user)
+// ─────────────────────────────────────────────────────────────
+
+model Technician {
+  id        String        @id @default(cuid())
+  // Public unique ID e.g. T2607040001 — {T}{YYMMDD}{sequence:4}
+  code      String        @unique
+  name      String?
+  mobile    String        @unique
+  email     String?
+  status    AccountStatus @default(INACTIVE)
+
+  // Overall onboarding KYC status (rolls up the 5 legal steps)
+  kycStatus KycStatus     @default(NOT_STARTED)
+
+  // FCM token for push notifications
+  fcmToken  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  personalKyc      PersonalKyc?
+  education        EducationQualification?
+  bankKyc          BankKyc?
+  companyKyc       CompanyKyc?
+  documents        DocumentKyc[]
+  signature        Signature?
+  serviceCategories TechnicianServiceCategory[]
+  otps             Otp[]
+
+  @@index([mobile])
+  @@index([kycStatus])
+  @@index([status])
+}
+
+// ─────────────────────────────────────────────────────────────
+// OTP verification
+// ─────────────────────────────────────────────────────────────
+
+model Otp {
+  id           String   @id @default(cuid())
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  mobile    String
+  code      String
+  purpose   String   @default("LOGIN") // LOGIN | REGISTER | FORGOT_PASSWORD
+  consumed  Boolean  @default(false)
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([technicianId])
+  @@index([mobile, code])
+}
+
+// ─────────────────────────────────────────────────────────────
+// KYC Step 1: Personal
+// ─────────────────────────────────────────────────────────────
+
+model PersonalKyc {
+  id           String     @id @default(cuid())
+  technicianId String     @unique
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  fullName     String?
+  dob          DateTime?
+  gender       Gender?
+  bloodGroupId String?
+  bloodGroup   BloodGroup? @relation(fields: [bloodGroupId], references: [id])
+
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  pincode      String?
+  locationId   String?
+  location     Location?  @relation(fields: [locationId], references: [id])
+
+  profilePhoto String?
+
+  status       KycStatus  @default(NOT_STARTED)
+  remark       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// KYC Step 2: Education
+// ─────────────────────────────────────────────────────────────
+
+model EducationQualification {
+  id           String     @id @default(cuid())
+  technicianId String     @unique
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  qualification String?
+  institution   String?
+  yearOfPassing Int?
+  certificateFile String?
+
+  status       KycStatus  @default(NOT_STARTED)
+  remark       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// KYC Step 3: Service categories (many-to-many via join model)
+// ─────────────────────────────────────────────────────────────
+
+model TechnicianServiceCategory {
+  id           String     @id @default(cuid())
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  serviceCategoryId String
+  serviceCategory   ServiceCategory @relation(fields: [serviceCategoryId], references: [id], onDelete: Cascade)
+
+  // Optional supporting certificate for this service
+  certificateId String?
+  certificate   Certificate? @relation(fields: [certificateId], references: [id])
+  certificateFile String?
+
+  status    KycStatus  @default(PENDING)
+  createdAt DateTime   @default(now())
+
+  @@unique([technicianId, serviceCategoryId])
+  @@index([technicianId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Bank KYC
+// ─────────────────────────────────────────────────────────────
+
+model BankKyc {
+  id           String     @id @default(cuid())
+  technicianId String     @unique
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  accountHolder String?
+  accountNumber String?
+  ifsc          String?
+  bankName      String?
+  branch        String?
+  upiId         String?
+  passbookFile  String? @map("passbook_file")
+
+  status       KycStatus  @default(NOT_STARTED)
+  remark       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// Company / Firm KYC
+// ─────────────────────────────────────────────────────────────
+
+model CompanyKyc {
+  id           String     @id @default(cuid())
+  technicianId String     @unique
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  companyType  CompanyType @default(INDIVIDUAL)
+  companyName  String?
+  gstNumber    String?
+  gstVerified  Boolean     @default(false)
+  panNumber    String?
+  registrationNumber String?
+
+  status       KycStatus  @default(NOT_STARTED)
+  remark       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// Document KYC (multiple docs: Aadhaar, PAN, etc.)
+// ─────────────────────────────────────────────────────────────
+
+model DocumentKyc {
+  id           String     @id @default(cuid())
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  docType   String   // AADHAAR | PAN | DRIVING_LICENSE | ...
+  docNumber String?
+  frontFile String?
+  backFile  String?
+
+  status    KycStatus  @default(PENDING)
+  remark    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([technicianId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// Signature
+// ─────────────────────────────────────────────────────────────
+
+model Signature {
+  id           String     @id @default(cuid())
+  technicianId String     @unique
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  file      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
+// Master data (admin-managed)
+// ─────────────────────────────────────────────────────────────
+
+model ServiceCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  icon        String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  technicianLinks TechnicianServiceCategory[]
+  certificates    Certificate[]
+}
+
+model Certificate {
+  id                String   @id @default(cuid())
+  name              String
+  serviceCategoryId String?
+  serviceCategory   ServiceCategory? @relation(fields: [serviceCategoryId], references: [id])
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  technicianLinks TechnicianServiceCategory[]
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  name      String
+  city      String?
+  state     String?
+  pincode   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  personalKycs PersonalKyc[]
+}
+
+model Badge {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String?
+  icon      String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RejectReason {
+  id        String   @id @default(cuid())
+  reason    String
+  category  String?  // which KYC step it applies to
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model BloodGroup {
+  id        String   @id @default(cuid())
+  name      String   @unique // A+, A-, O+, ...
+  createdAt DateTime @default(now())
+
+  personalKycs PersonalKyc[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// Admin (NextAuth credentials)
+// ─────────────────────────────────────────────────────────────
+
+model Admin {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("ADMIN") // ADMIN | SUPER_ADMIN | REVIEWER
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

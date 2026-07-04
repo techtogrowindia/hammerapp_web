@@ -1,0 +1,4 @@
+# Ensure LF line endings on checkout (important for shell scripts on Linux VPS)
+* text=auto eol=lf
+*.sh text eol=lf
+*.conf text eol=lf
