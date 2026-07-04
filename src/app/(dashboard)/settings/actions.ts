@@ -6,6 +6,13 @@ import { prisma } from "@/lib/prisma";
 import { saveUpload } from "@/lib/upload";
 
 const TEXT_KEYS = [
+  "site.title",
+  "site.description",
+  "whatsapp.api_url",
+  "whatsapp.api_key",
+  "whatsapp.sender",
+  "idfy.api_key",
+  "idfy.account_id",
   "deposit.technician",
   "deposit.shop",
   "razorpay.key_id",
