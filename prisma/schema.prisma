@@ -326,6 +326,7 @@ model Service {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([serviceCategoryId, serviceSubcategoryId, name])
   @@index([serviceCategoryId])
   @@index([serviceSubcategoryId])
 }

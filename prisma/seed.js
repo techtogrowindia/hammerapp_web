@@ -54,6 +54,60 @@ const PRODUCT_CATEGORIES = [
   { name: "Home Appliances", subs: ["Fans", "Water Heaters", "Air Coolers", "Small Appliances"] },
 ];
 
+// Bulk services catalog (50+ services with categories/subcategories from screenshot).
+const SERVICE_CATALOG = [
+  { cat: "Construction Material", sub: "Stone", srv: "Jully / Chips", tax: 5 },
+  { cat: "Construction Material", sub: "Sand", srv: "River Sand / Filling Sand /Red Sand Cravel", tax: 5 },
+  { cat: "Construction Material", sub: "Sand", srv: "M Sand /P Sand", tax: 5 },
+  { cat: "Construction Material", sub: "iron Rods", srv: "Roofing Sheets", tax: 18 },
+  { cat: "Construction Material", sub: "iron Rods", srv: "Structural Sections (Open Profiles) TMT", tax: 18 },
+  { cat: "Construction Material", sub: "iron Rods", srv: "Metal Sheets & Plates", tax: 18 },
+  { cat: "Construction Material", sub: "iron Rods", srv: "Hollow Structural Sections (Pipes & Tubes)", tax: 18 },
+  { cat: "Construction Material", sub: "Bricks", srv: "Interlocking Bricks", tax: 12 },
+  { cat: "Construction Material", sub: "Bricks", srv: "Hollow Bricks / Hollow Blocks", tax: 12 },
+  { cat: "Construction Material", sub: "Bricks", srv: "Concrete / Cement Bricks", tax: 12 },
+  { cat: "Construction Material", sub: "Bricks", srv: "AAC Blocks", tax: 12 },
+  { cat: "Construction Material", sub: "Bricks", srv: "Fly Ash Bricks", tax: 12 },
+  { cat: "Construction Material", sub: "Bricks", srv: "Red Clay Bricks", tax: 12 },
+  { cat: "Welding Works", sub: "SS Steel New & Repair Work", srv: "Stainless Steel New & Repair work", tax: 18 },
+  { cat: "Welding Works", sub: "New Shed Works", srv: "Repair/New Works", tax: 18 },
+  { cat: "Welding Works", sub: "Grill / New Gate New /Repair Works", srv: "Iron Grill & Gate Work", tax: 18 },
+  { cat: "Computer & Laptop Services", sub: "Software services", srv: "BSOD & Slow Performance/Lagging/System Freezing/Hanging", tax: 18 },
+  { cat: "Computer & Laptop Services", sub: "Hardware Services", srv: "Power issues & Screen/Display Damage", tax: 18 },
+  { cat: "Commercial Cargo Vehicle", sub: "Load Vehicle Large", srv: "Lorry & Containers", tax: 18 },
+  { cat: "Plumbing", sub: "New Works & Installation", srv: "Water Heater/Under Ground/Rough-In/Water Supply/External Piping(Main Line, Rain Water)/Pressure Pump/New Internal & External Piping", tax: 18 },
+  { cat: "Plumbing", sub: "Maintenance & Repair Works", srv: "Tap Leakage /Line Blockage/Pipe Replacement/Pressure Pump/Toilet Repair/Borewell Pipe Repair", tax: 18 },
+  { cat: "Carpentry", sub: "Office Chair Repair", srv: "Rolling Chair & Hydraulic Chair Repair", tax: 18 },
+  { cat: "Blood Diagnosis", sub: "Lab Tests", srv: "Basic & Advance Blood Test", tax: 0 },
+  { cat: "Home Appliances Repair & Rewinding", sub: "Small Appliances", srv: "TV/Fan/Sound System/ Water Heater/Iron Box/Vacuum Cleaner/Stabilizer", tax: 18 },
+  { cat: "Home Appliances Repair & Rewinding", sub: "Rewinding Works", srv: "Fan/Water Pump/Sub Motor/Grinder/Mixer", tax: 18 },
+  { cat: "Home Appliances Repair & Rewinding", sub: "Large Appliances", srv: "Washing Machine/Dishwasher Machine", tax: 18 },
+  { cat: "Carpentry", sub: "UPVC Work / Mosquito Netting", srv: "UPVC Doors / Windows", tax: 18 },
+  { cat: "Home Appliances Repair & Rewinding", sub: "Kitchen Appliances", srv: "Gas Stove/Induction/Blender/Mixer/Wet Grinder/Air Fryer/Microwave Oven", tax: 18 },
+  { cat: "Carpentry", sub: "New Work", srv: "Door Set / Ward robe / Furniture", tax: 18 },
+  { cat: "Carpentry", sub: "Carving Work", srv: "Hand / Machine Work", tax: 18 },
+  { cat: "Cleaning Services", sub: "Water Tank Cleaning", srv: "Water & Sump Cleaning", tax: 18 },
+  { cat: "Cleaning Services", sub: "Septic Tank/Drainage Cleaning", srv: "Septic Tank Cleaning & Blockage Cleaning", tax: 18 },
+  { cat: "Cleaning Services", sub: "Kitchen Cleaning", srv: "Floor & Wall Tiles Cleaning/Cooking Utilities Exhaust Fan", tax: 18 },
+  { cat: "Cleaning Services", sub: "General & Deep Home Cleaning Services", srv: "Floor/Dust/Window/Fan/Wall Cleaning", tax: 18 },
+  { cat: "Cleaning Services", sub: "Garden & lawn cleaning", srv: "Waste Removal/Vegetation Cleaning", tax: 18 },
+  { cat: "Cleaning Services", sub: "Chimney Cleaning", srv: "Filter Deep Cleaning/Internal Blower & fan/Oil Tray Cleaning Services", tax: 18 },
+  { cat: "Cleaning Services", sub: "Bathroom Cleaning", srv: "Closet/Tile/Tap Cleaning", tax: 18 },
+  { cat: "Carpentry", sub: "Basic Repair Works", srv: "Door / Window / Cupboard / Furniture", tax: 18 },
+  { cat: "Painting & Decor", sub: "Wood Polish", srv: "Doors Furniture Polishing Service", tax: 18 },
+  { cat: "Painting & Decor", sub: "Texture Painting", srv: "Venetian/Spatula/Stippling Services", tax: 18 },
+  { cat: "Tailoring", sub: "Ladies", srv: "Hand / Machine Embroidery", tax: 5 },
+  { cat: "Painting & Decor", sub: "Metal Painting", srv: "Grill/Gate Painting", tax: 18 },
+  { cat: "Tailoring", sub: "Kids", srv: "Uniform / Silk Skirt", tax: 5 },
+  { cat: "Air Conditioner", sub: "Ductable(Central) AC", srv: "General Service/Indoor Unit & Air Handling(FCU)/Evaporator Coil Cleaning/Blower & Fan Assembly", tax: 18 },
+  { cat: "Air Conditioner", sub: "Portable AC", srv: "General Service/Filter Cleaning/Cooling & Compressor Issues/Exhaust Hose Inspection", tax: 18 },
+  { cat: "Tailoring", sub: "Ladies", srv: "Kurti / Churidar / Patiala / Over Coat", tax: 5 },
+  { cat: "Air Conditioner", sub: "Split AC", srv: "General Service/Indoor & Outdoor Cleaning Services/Cooling & Compressor Issues", tax: 18 },
+  { cat: "Tailoring", sub: "Ladies Premium", srv: "Bridal Blouse / Aari Work", tax: 18 },
+  { cat: "Air Conditioner", sub: "Window AC", srv: "General Service/Filter Cleaning/Cooling & Compressor Issues", tax: 18 },
+  { cat: "Tailoring", sub: "Ladies", srv: "Regular Blouse Stitching / Alteration works", tax: 5 },
+];
+
 async function main() {
   console.log("🌱 Seeding master data...");
 
@@ -102,6 +156,43 @@ async function main() {
         });
       }
     }
+  }
+
+  // Bulk load services catalog.
+  const catCache = {}; // {catName} -> id
+  for (const item of SERVICE_CATALOG) {
+    // Ensure category.
+    if (!catCache[item.cat]) {
+      const c = await prisma.serviceCategory.upsert({
+        where: { name: item.cat },
+        create: { name: item.cat },
+        update: {},
+      });
+      catCache[item.cat] = c.id;
+    }
+    // Ensure subcategory.
+    const sc = await prisma.serviceSubcategory.upsert({
+      where: { serviceCategoryId_name: { serviceCategoryId: catCache[item.cat], name: item.sub } },
+      create: { serviceCategoryId: catCache[item.cat], name: item.sub },
+      update: {},
+    });
+    // Upsert service (by category + subcategory + name).
+    await prisma.service.upsert({
+      where: {
+        serviceCategoryId_serviceSubcategoryId_name: {
+          serviceCategoryId: catCache[item.cat],
+          serviceSubcategoryId: sc.id,
+          name: item.srv,
+        },
+      },
+      create: {
+        serviceCategoryId: catCache[item.cat],
+        serviceSubcategoryId: sc.id,
+        name: item.srv,
+        taxPercent: item.tax,
+      },
+      update: { taxPercent: item.tax },
+    });
   }
 
   const adminEmail = "admin@hammerapp.in";
