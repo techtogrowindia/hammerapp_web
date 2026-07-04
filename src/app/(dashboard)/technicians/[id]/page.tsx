@@ -3,7 +3,9 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { StatusBadge } from "@/components/StatusBadge";
 import { KycStepCard } from "./KycStepCard";
-import { DocumentViewer, type DocFile } from "./DocumentViewer";
+import { DocumentViewer, type DocFile } from "@/components/DocumentViewer";
+import { AadharPanCheck } from "@/components/AadharPanCheck";
+import { checkTechnicianAadharPan } from "./actions";
 import { ArrowLeft, Phone, Mail, Calendar, Pencil, CheckCircle2, Circle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -155,7 +157,12 @@ export default async function TechnicianDetailPage({
             })}
           </ul>
 
-          <div className="border-t border-[var(--border)] mt-4 pt-4 space-y-1.5 text-sm">
+          <div className="border-t border-[var(--border)] mt-4 pt-4 space-y-2.5 text-sm">
+            <AadharPanCheck
+              linked={t.aadharPanLinked}
+              checkedAt={fmtDate(t.aadharPanCheckedAt)}
+              action={checkTechnicianAadharPan.bind(null, t.id)}
+            />
             <div className="flex items-center justify-between">
               <span className="text-slate-500">GST Verified</span>
               <span className={gstVerified ? "text-green-600 font-medium" : "text-slate-400"}>{gstVerified ? "Yes" : "No / Not checked"}</span>

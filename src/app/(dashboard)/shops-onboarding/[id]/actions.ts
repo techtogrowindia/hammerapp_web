@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { recomputeShopKycStatus } from "@/lib/kyc-shop";
+import { checkAadharPanLinkage } from "@/lib/verify";
 import type { KycStatus } from "@prisma/client";
 
 export type ShopKycStep = "profile" | "products" | "company" | "bank" | "document";
@@ -53,6 +54,32 @@ export async function reviewShopKycStep(input: ShopReviewInput) {
   } catch (err) {
     console.error("[reviewShopKycStep]", err);
     return { ok: false, message: "Something went wrong" };
+  }
+}
+
+/** Run an Aadhaar–PAN linkage check for a shop and store the result. */
+export async function checkShopAadharPan(shopId: number) {
+  const session = await auth();
+  if (!session?.user) return { ok: false, message: "Unauthorized" };
+
+  try {
+    const p = await prisma.shopPersonalKyc.findUnique({ where: { shopId } });
+    const aadhar = p?.aadharNumber ?? "";
+    const pan = p?.panNumber ?? "";
+    if (!aadhar || !pan) {
+      return { ok: false, message: "Aadhaar and PAN are both required in Profile KYC." };
+    }
+
+    const { linked, mock } = await checkAadharPanLinkage(aadhar, pan);
+    await prisma.shop.update({
+      where: { id: shopId },
+      data: { aadharPanLinked: linked, aadharPanCheckedAt: new Date() },
+    });
+    revalidatePath(`/shops-onboarding/${shopId}`);
+    return { ok: true, linked, mock };
+  } catch (err) {
+    console.error("[checkShopAadharPan]", err);
+    return { ok: false, message: "Verification failed" };
   }
 }
 

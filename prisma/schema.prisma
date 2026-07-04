@@ -75,6 +75,10 @@ model Technician {
   // FCM token for push notifications
   fcmToken String?
 
+  // Last Aadhaar–PAN linkage check (via verify.ts adapter)
+  aadharPanLinked    Boolean?
+  aadharPanCheckedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -413,6 +417,10 @@ model Shop {
   registrationPaid Boolean @default(false)
 
   fcmToken String?
+
+  // Last Aadhaar–PAN linkage check (via verify.ts adapter)
+  aadharPanLinked    Boolean?
+  aadharPanCheckedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
