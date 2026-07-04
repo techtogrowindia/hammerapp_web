@@ -5,13 +5,7 @@ const prisma = new PrismaClient();
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "O+", "O-", "AB+", "AB-"];
 
-const SERVICE_CATEGORIES = [
-  { name: "Electrical", description: "Wiring, fixtures, panels" },
-  { name: "Plumbing", description: "Pipes, taps, drainage" },
-  { name: "AC Repair", description: "Installation & servicing" },
-  { name: "Carpentry", description: "Furniture & fittings" },
-  { name: "Appliance Repair", description: "Home appliances" },
-];
+// Service categories now come from SERVICE_TAXONOMY (Work Wise Category) below.
 
 const REJECT_REASONS = [
   { reason: "Document unclear / unreadable", category: "DOCUMENT" },
@@ -65,14 +59,6 @@ async function main() {
 
   for (const name of BLOOD_GROUPS) {
     await prisma.bloodGroup.upsert({ where: { name }, create: { name }, update: {} });
-  }
-
-  for (const sc of SERVICE_CATEGORIES) {
-    await prisma.serviceCategory.upsert({
-      where: { name: sc.name },
-      create: sc,
-      update: { description: sc.description },
-    });
   }
 
   // Service taxonomy: categories + subcategories (Work Wise Category.xlsx).
