@@ -13,6 +13,7 @@ const TEXT_KEYS = [
   "whatsapp.sender",
   "idfy.api_key",
   "idfy.account_id",
+  "app.positive_message",
 ] as const;
 
 export async function saveSettings(_prev: unknown, formData: FormData) {
@@ -40,6 +41,13 @@ export async function saveSettings(_prev: unknown, formData: FormData) {
     if (faviconFile && faviconFile.size > 0) {
       const stored = await saveUpload(faviconFile, "settings", "global");
       upserts.push({ key: "site.favicon", value: stored.path });
+    }
+
+    // OTP GIF upload
+    const gifFile = formData.get("app.otp_gif") as File | null;
+    if (gifFile && gifFile.size > 0) {
+      const stored = await saveUpload(gifFile, "settings", "global");
+      upserts.push({ key: "app.otp_gif", value: stored.path });
     }
 
     await prisma.$transaction(

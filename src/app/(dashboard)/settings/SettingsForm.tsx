@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useRef } from "react";
-import { Loader2, Save, Upload, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, Save, Upload, CheckCircle2, AlertCircle, Image as ImageIcon } from "lucide-react";
 import { saveSettings } from "./actions";
 
 const UPLOAD_BASE = "/uploads";
@@ -17,9 +17,11 @@ export function SettingsForm({ settings }: Props) {
   const [state, action, pending] = useActionState(saveSettings, null);
   const logoRef = useRef<HTMLInputElement>(null);
   const faviconRef = useRef<HTMLInputElement>(null);
+  const gifRef = useRef<HTMLInputElement>(null);
 
   const logoUrl = fileUrl(settings["site.logo"]);
   const faviconUrl = fileUrl(settings["site.favicon"]);
+  const gifUrl = fileUrl(settings["app.otp_gif"]);
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -117,6 +119,59 @@ export function SettingsForm({ settings }: Props) {
           <Field label="API URL" name="whatsapp.api_url" defaultValue={settings["whatsapp.api_url"]} placeholder="https://api.whatsapp-provider.com/send" type="url" />
           <Field label="API key / token" name="whatsapp.api_key" defaultValue={settings["whatsapp.api_key"]} placeholder="Bearer token or API key" secret />
           <Field label="Sender number" name="whatsapp.sender" defaultValue={settings["whatsapp.sender"]} placeholder="+919876543210" />
+        </Section>
+
+        {/* ── App GIF Settings ── */}
+        <Section
+          title="App GIF Settings"
+          description="OTP screen animation shown in the technician and shop mobile apps. Uploaded GIF is served at /api/general/otp-gif."
+        >
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">
+              OTP Screen GIF
+            </label>
+            <div className="flex items-start gap-4">
+              {gifUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={gifUrl}
+                  alt="OTP screen gif preview"
+                  className="h-32 w-32 rounded border border-slate-200 bg-slate-50 p-1 object-contain"
+                />
+              ) : (
+                <div className="h-32 w-32 rounded border border-dashed border-slate-300 bg-slate-50 flex flex-col items-center justify-center gap-1 text-slate-400">
+                  <ImageIcon className="h-8 w-8" />
+                  <span className="text-xs">No GIF</span>
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => gifRef.current?.click()}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-medium px-3 py-1.5"
+                >
+                  <Upload className="h-3.5 w-3.5" /> Upload GIF
+                </button>
+                <input ref={gifRef} type="file" name="app.otp_gif" accept="image/gif,image/png,image/jpeg" className="hidden" />
+                <p className="text-xs text-slate-400">GIF/PNG/JPG. Max 10 MB.</p>
+                <p className="text-xs text-slate-400">Leave empty to keep existing file.</p>
+              </div>
+            </div>
+          </div>
+        </Section>
+
+        {/* ── Positive Message ── */}
+        <Section
+          title="Positive Message"
+          description="Motivational message shown in the app's dashboard. Updated dynamically without an app release."
+        >
+          <Field
+            label="Message"
+            name="app.positive_message"
+            defaultValue={settings["app.positive_message"]}
+            placeholder="Keep going! Every service builds trust."
+            textarea
+          />
         </Section>
 
         {/* ── IDfy Verification ── */}

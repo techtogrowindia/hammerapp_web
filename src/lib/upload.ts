@@ -10,6 +10,7 @@ const ALLOWED = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
+  "image/gif",
   "application/pdf",
 ]);
 
