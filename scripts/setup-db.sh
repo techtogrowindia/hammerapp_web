@@ -36,11 +36,13 @@ sudo -u postgres psql -c "
 "
 
 echo "[2/3] Creating database '$DB_NAME'..."
-sudo -u postgres psql -c "
-  SELECT 'CREATE DATABASE $DB_NAME OWNER $DB_USER'
-  WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '$DB_NAME')
-  \gexec
-"
+DB_EXISTS=$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname = '$DB_NAME'")
+if [[ "$DB_EXISTS" == "1" ]]; then
+  echo "      Database '$DB_NAME' already exists — skipping."
+else
+  sudo -u postgres createdb -O "$DB_USER" "$DB_NAME"
+  echo "      Database '$DB_NAME' created."
+fi
 
 echo "[3/3] Granting privileges..."
 sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;"
