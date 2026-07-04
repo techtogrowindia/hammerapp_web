@@ -36,13 +36,14 @@ export async function POST(req: NextRequest) {
         const results = [];
         for (const raw of batch) {
           const item = raw as Record<string, unknown>;
-          const serviceCategoryId = String(
-            item.category_id ?? item.serviceCategoryId ?? item.id ?? "",
-          );
-          if (!serviceCategoryId) continue;
-          const category = await prisma.serviceCategory.findUnique({
-            where: { id: serviceCategoryId },
-          });
+          const rawId = item.category_id ?? item.serviceCategoryId ?? item.id;
+          const numId = Number(rawId);
+          // Resolve by seqId (mobile app sends integer) or by cuid string
+          const category = !isNaN(numId) && numId > 0
+            ? await prisma.serviceCategory.findUnique({ where: { seqId: numId } })
+            : await prisma.serviceCategory.findUnique({ where: { id: String(rawId ?? "") } });
+          if (!category) continue;
+          const serviceCategoryId = category.id;
           if (!category) continue;
           const yoe =
             item.years_of_experience != null
@@ -92,14 +93,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const serviceCategoryId =
-      fields.serviceCategoryId ?? fields.service_category_id ?? fields.category_id;
-    if (!serviceCategoryId) return fail("serviceCategoryId is required");
-
-    const category = await prisma.serviceCategory.findUnique({
-      where: { id: serviceCategoryId },
-    });
+    const rawCatId = fields.serviceCategoryId ?? fields.service_category_id ?? fields.category_id;
+    if (!rawCatId) return fail("serviceCategoryId is required");
+    const numCatId = Number(rawCatId);
+    const category = !isNaN(numCatId) && numCatId > 0
+      ? await prisma.serviceCategory.findUnique({ where: { seqId: numCatId } })
+      : await prisma.serviceCategory.findUnique({ where: { id: rawCatId } });
     if (!category) return notFound("Service category not found");
+    const serviceCategoryId = category.id;
 
     const certificateId = fields.certificateId ?? fields.certificate_id ?? null;
     const yoeRaw = fields.yearsOfExperience ?? fields.years_of_experience;

@@ -63,6 +63,7 @@ export default async function TechnicianDetailPage({
         include: { service: { include: { serviceCategory: true, serviceSubcategory: true } } },
       },
       serviceCertificates: { include: { service: true, certificate: true } },
+      generalProfile: { include: { nominees: { orderBy: { createdAt: "asc" } } } },
     },
   });
 
@@ -72,6 +73,7 @@ export default async function TechnicianDetailPage({
   const b = t.bankKyc;
   const c = t.companyKyc;
   const e = t.education;
+  const gp = t.generalProfile;
 
   const servicesStatus = t.serviceCategories.length ? t.serviceCategories[0].status : "NOT_STARTED";
   const documentsStatus = t.documents.length ? t.documents[0].status : "NOT_STARTED";
@@ -391,6 +393,97 @@ export default async function TechnicianDetailPage({
                   </li>
                 ))}
               </ul>
+            </SideCard>
+          )}
+
+          {/* General Profile */}
+          {gp && (
+            <SideCard title="General Profile">
+              <dl className="space-y-2.5 text-sm">
+                <Field label="Marital status" value={gp.isMarried ? "Married" : "Single"} />
+                {gp.isMarried && <Field label="Spouse" value={gp.spouseName} />}
+                {gp.isMarried && <Field label="Marriage date" value={fmtDate(gp.marriageDate)} />}
+                <Field label="Emergency contact" value={gp.emergencyContactNo} />
+                <Field label="SOS visible" value={gp.sosVisibility ? "Yes" : "No"} />
+                <Field label="Gender identity" value={gp.genderIdentity} />
+                <Field label="T-shirt size" value={gp.tshirtSize} />
+                <Field label="Colour preference" value={gp.colourPreference} />
+                <Field label="Earning screen visible" value={gp.earningScreenVisible ? "Yes" : "No"} />
+                {gp.festivalSelection.length > 0 && (
+                  <Field label="Festivals" value={gp.festivalSelection.join(", ")} />
+                )}
+              </dl>
+              {/* Welfare card */}
+              {gp.welfareCard && (
+                <div className="mt-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Welfare Card</p>
+                  <dl className="space-y-1.5 text-sm">
+                    <Field label="Scheme" value={gp.welfareCardScheme} />
+                    <Field label="Expiry" value={fmtDate(gp.welfareCardExpiry)} />
+                    {gp.welfareCardFile && <Field label="Document" value={<a href={fileUrl(gp.welfareCardFile)!} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">View</a>} />}
+                  </dl>
+                </div>
+              )}
+              {/* Police verification */}
+              <div className="mt-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Police Verification</p>
+                <dl className="space-y-1.5 text-sm">
+                  <Field label="Status" value={gp.policeVerification ? "Done" : "Pending"} />
+                  {gp.policeVerification && (
+                    <>
+                      <Field label="Certificate No." value={gp.policeVerifCertNo} />
+                      <Field label="Issued by" value={gp.policeVerifIssuedBy} />
+                      <Field label="Issue date" value={fmtDate(gp.policeVerifIssueDate)} />
+                      <Field label="Provision status" value={gp.policeVerifStatus} />
+                      {gp.policeVerifFile && <Field label="Document" value={<a href={fileUrl(gp.policeVerifFile)!} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">View</a>} />}
+                    </>
+                  )}
+                </dl>
+              </div>
+              {/* Insurance */}
+              <div className="mt-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Insurance</p>
+                <dl className="space-y-1.5 text-sm">
+                  <Field label="Status" value={gp.insurance ? "Active" : "No"} />
+                  {gp.insurance && (
+                    <>
+                      <Field label="Provider" value={gp.insuranceProvider} />
+                      <Field label="Policy No." value={gp.insurancePolicyNo} />
+                      <Field label="Start" value={fmtDate(gp.insurancePolicyStart)} />
+                      <Field label="Expiry" value={fmtDate(gp.insurancePolicyExpiry)} />
+                      {gp.insuranceFile && <Field label="Document" value={<a href={fileUrl(gp.insuranceFile)!} target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline">View</a>} />}
+                    </>
+                  )}
+                </dl>
+              </div>
+              {/* Employment */}
+              {(gp.employeeId || gp.department || gp.designation) && (
+                <div className="mt-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Employment</p>
+                  <dl className="space-y-1.5 text-sm">
+                    <Field label="Employee ID" value={gp.employeeId} />
+                    <Field label="Department" value={gp.department} />
+                    <Field label="Designation" value={gp.designation} />
+                    <Field label="Joining date" value={fmtDate(gp.joiningDate)} />
+                  </dl>
+                </div>
+              )}
+              {/* Nominees */}
+              {gp.nominees.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400 mb-2">Nominees</p>
+                  <ul className="space-y-2">
+                    {gp.nominees.map((n, i) => (
+                      <li key={n.id} className="text-xs text-slate-600 border-t border-[var(--border)] pt-2 first:border-0 first:pt-0">
+                        <span className="font-medium text-slate-800">{i + 1}. {n.name}</span>
+                        {n.percentage != null && <span className="text-slate-400"> · {n.percentage}%</span>}
+                        {n.phoneNumber && <span className="block">{n.phoneNumber}</span>}
+                        {n.aadharCardNo && <span className="block text-slate-400">Aadhaar: {n.aadharCardNo}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </SideCard>
           )}
         </div>

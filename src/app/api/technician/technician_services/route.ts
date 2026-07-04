@@ -29,15 +29,24 @@ export async function POST(req: NextRequest) {
       (body.technician_services as unknown[] | undefined) ??
       (body.services as unknown[] | undefined) ??
       [];
-    const ids = raw.map((x) => String(x)).filter(Boolean);
 
-    // Only keep IDs that resolve to real services.
-    const valid = await prisma.service.findMany({
-      where: { id: { in: ids } },
-      select: { id: true },
-    });
-    const validIds = new Set(valid.map((s) => s.id));
-    const ignored = ids.filter((id) => !validIds.has(id));
+    // Resolve both integer seqIds (from mobile app) and cuid strings.
+    const seqIds: number[] = [];
+    const cuidIds: string[] = [];
+    for (const x of raw) {
+      const n = Number(x);
+      if (!isNaN(n) && n > 0) seqIds.push(n);
+      else if (x) cuidIds.push(String(x));
+    }
+
+    const bySeq = seqIds.length
+      ? await prisma.service.findMany({ where: { seqId: { in: seqIds } }, select: { id: true } })
+      : [];
+    const byCuid = cuidIds.length
+      ? await prisma.service.findMany({ where: { id: { in: cuidIds } }, select: { id: true } })
+      : [];
+
+    const validIds = new Set([...bySeq, ...byCuid].map((s) => s.id));
 
     // Replace the set: delete rows no longer selected, upsert the rest.
     await prisma.technicianService.deleteMany({
@@ -58,7 +67,7 @@ export async function POST(req: NextRequest) {
       where: { technicianId: tech.id },
       include: { service: true },
     });
-    return created({ services: records, ignored_service_ids: ignored }, "Services saved");
+    return created({ services: records }, "Services saved");
   } catch (err) {
     console.error("[technician/technician_services POST]", err);
     return serverError();

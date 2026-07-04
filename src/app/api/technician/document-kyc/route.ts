@@ -24,11 +24,13 @@ const KEYED_DOCS: Record<string, { docType: string; side: "front" | "back" }> = 
   aadhar_back: { docType: "AADHAAR", side: "back" },
   pan_card: { docType: "PAN", side: "front" },
   bank_passbook: { docType: "BANK_PASSBOOK", side: "front" },
+  bank_statement: { docType: "BANK_PASSBOOK", side: "front" }, // alias used by Flutter app
   photo: { docType: "PROFILE_PHOTO", side: "front" },
   license_front: { docType: "DRIVING_LICENSE", side: "front" },
   license_back: { docType: "DRIVING_LICENSE", side: "back" },
   company_photo: { docType: "COMPANY_PHOTO", side: "front" },
   gst: { docType: "GST", side: "front" },
+  gst_document: { docType: "GST", side: "front" }, // alias used by Flutter app
 };
 
 async function upsertDoc(

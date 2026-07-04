@@ -91,6 +91,7 @@ model Technician {
   serviceCategories   TechnicianServiceCategory[]
   technicianServices  TechnicianService[]
   serviceCertificates ServiceCertificate[]
+  generalProfile      TechnicianGeneralProfile?
   otps                Otp[]
 
   @@index([mobile])
@@ -260,6 +261,7 @@ model BankKyc {
 
   accountHolder String?
   accountNumber String?
+  accountType   BankAccountType?
   ifsc          String?
   bankName      String?
   branch        String?
@@ -295,6 +297,7 @@ model CompanyKyc {
   cityTownVillage    String?
   taluk              String?
   district           String?
+  pincode            String?
   numberOfEmployees  Int?
 
   status KycStatus @default(NOT_STARTED)
@@ -342,11 +345,88 @@ model Signature {
 }
 
 // ─────────────────────────────────────────────────────────────
+// General Profile (personal, welfare, employment details)
+// Separate from PersonalKyc — collected after KYC completion.
+// ─────────────────────────────────────────────────────────────
+
+model TechnicianGeneralProfile {
+  id           String     @id @default(cuid())
+  technicianId String     @unique
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  // Marital
+  isMarried    Boolean   @default(false)
+  spouseName   String?
+  marriageDate DateTime?
+
+  // Emergency / SOS
+  emergencyContactNo String?
+  sosVisibility      Boolean  @default(false)
+
+  // Identity & preferences
+  genderIdentity    String?
+  festivalSelection String[] @default([])
+  tshirtSize        String?
+  colourPreference  String?
+
+  // Employment (internal Hammer fields)
+  employeeId   String?
+  department   String?
+  designation  String?
+  joiningDate  DateTime?
+
+  // Welfare card
+  welfareCard       Boolean   @default(false)
+  welfareCardScheme String?
+  welfareCardExpiry DateTime?
+  welfareCardFile   String?
+
+  // Police verification (expanded)
+  policeVerification    Boolean   @default(false)
+  policeVerifCertNo     String?
+  policeVerifIssuedBy   String?
+  policeVerifIssueDate  DateTime?
+  policeVerifFile       String?
+  policeVerifStatus     String?
+
+  // Insurance (expanded)
+  insurance            Boolean   @default(false)
+  insuranceProvider    String?
+  insurancePolicyNo    String?
+  insurancePolicyStart DateTime?
+  insurancePolicyExpiry DateTime?
+  insuranceFile        String?
+
+  // Bonus
+  earningScreenVisible Boolean @default(false)
+
+  nominees TechnicianNominee[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TechnicianNominee {
+  id               String                   @id @default(cuid())
+  generalProfileId String
+  generalProfile   TechnicianGeneralProfile @relation(fields: [generalProfileId], references: [id], onDelete: Cascade)
+
+  name         String
+  aadharCardNo String?
+  phoneNumber  String?
+  percentage   Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────
 // Master data (admin-managed)
 // ─────────────────────────────────────────────────────────────
 
 model ServiceCategory {
   id          String   @id @default(cuid())
+  seqId       Int      @unique @default(autoincrement()) // integer ID for mobile app
   name        String   @unique
   description String?
   icon        String?
@@ -363,6 +443,7 @@ model ServiceCategory {
 // Level 2 of the services taxonomy (e.g. "New Wiring" under "Electrician").
 model ServiceSubcategory {
   id                String          @id @default(cuid())
+  seqId             Int             @unique @default(autoincrement()) // integer ID for mobile app
   name              String
   serviceCategoryId String
   serviceCategory   ServiceCategory @relation(fields: [serviceCategoryId], references: [id], onDelete: Cascade)
@@ -379,16 +460,18 @@ model ServiceSubcategory {
 // Level 3: an individual bookable service with tax + SAC code (customer-facing).
 model Service {
   id                   String              @id @default(cuid())
+  seqId                Int                 @unique @default(autoincrement()) // integer ID for mobile app
   name                 String
   serviceCategoryId    String
   serviceCategory      ServiceCategory     @relation(fields: [serviceCategoryId], references: [id], onDelete: Cascade)
   serviceSubcategoryId String?
   serviceSubcategory   ServiceSubcategory? @relation(fields: [serviceSubcategoryId], references: [id])
 
-  taxPercent Float   @default(0) // GST %, e.g. 5 / 12 / 18
-  sacCode    String? // SAC/HSN code for billing
-  image      String?
-  active     Boolean @default(true)
+  taxPercent                   Float   @default(0) // GST %, e.g. 5 / 12 / 18
+  sacCode                      String? // SAC/HSN code for billing
+  image                        String?
+  technicianActivationCharges  Int     @default(0) // app field: technician_activation_charges
+  active                       Boolean @default(true)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -403,9 +486,11 @@ model Service {
 
 model Certificate {
   id                String           @id @default(cuid())
+  seqId             Int              @unique @default(autoincrement()) // integer ID for mobile app
   name              String
   serviceCategoryId String?
   serviceCategory   ServiceCategory? @relation(fields: [serviceCategoryId], references: [id])
+  image             String?
   active            Boolean          @default(true)
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt

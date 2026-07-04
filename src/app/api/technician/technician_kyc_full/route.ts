@@ -23,6 +23,7 @@ export async function GET(req: NextRequest) {
         include: { service: { include: { serviceCategory: true, serviceSubcategory: true } } },
       },
       serviceCertificates: { include: { service: true, certificate: true } },
+      generalProfile: { include: { nominees: { orderBy: { createdAt: "asc" } } } },
     },
   });
 
@@ -47,6 +48,7 @@ export async function GET(req: NextRequest) {
       company_kyc: full.companyKyc,
       bank_kyc: full.bankKyc,
       document_kyc: full.documents,
+      general_profile: full.generalProfile,
       signature: full.signature,
     },
     "KYC snapshot fetched",

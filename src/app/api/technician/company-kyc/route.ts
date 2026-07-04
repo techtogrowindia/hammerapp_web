@@ -64,6 +64,7 @@ async function upsert(req: NextRequest) {
       cityTownVillage: fields.cityTownVillage ?? fields.city_town_village,
       taluk: fields.taluk,
       district: fields.district,
+      pincode: fields.pincode ?? fields.company_pincode,
       numberOfEmployees: empRaw ? Number(empRaw) : undefined,
       status: "PENDING" as const,
     };

@@ -4,6 +4,7 @@ import { ok, fail, unauthorized, serverError } from "@/lib/api";
 import { prisma } from "@/lib/prisma";
 import { saveUpload, isMultipart, UploadError } from "@/lib/upload";
 import { recomputeKycStatus } from "@/lib/kyc";
+import type { BankAccountType } from "@prisma/client";
 
 // GET /api/technician/bank-kyc
 export async function GET(req: NextRequest) {
@@ -50,12 +51,19 @@ async function upsert(req: NextRequest) {
       }
     }
 
+    const accountTypeRaw = fields.accountType ?? fields.account_type;
+    const accountType: BankAccountType | undefined =
+      accountTypeRaw?.toLowerCase().startsWith("saving") ? "SAVINGS" :
+      accountTypeRaw?.toLowerCase().startsWith("current") ? "CURRENT" : undefined;
+
     const data = {
-      accountHolder: fields.accountHolder ?? fields.account_holder,
+      // app sends account_holder_name or account_holder
+      accountHolder: fields.accountHolder ?? fields.account_holder ?? fields.account_holder_name,
       accountNumber: fields.accountNumber ?? fields.account_number,
-      ifsc: fields.ifsc?.toUpperCase(),
+      accountType,
+      ifsc: (fields.ifsc ?? fields.ifsc_code)?.toUpperCase(),
       bankName: fields.bankName ?? fields.bank_name,
-      branch: fields.branch,
+      branch: fields.branch ?? fields.branch_name,
       upiId: fields.upiId ?? fields.upi_id,
       ...(passbookFile ? { passbookFile } : {}),
       status: "PENDING" as const,

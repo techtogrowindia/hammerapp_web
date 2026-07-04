@@ -46,13 +46,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const serviceId = fields.serviceId ?? fields.service_id;
-    if (!serviceId) return fail("service_id is required");
-
-    const service = await prisma.service.findUnique({ where: { id: serviceId } });
+    const rawSvcId = fields.serviceId ?? fields.service_id;
+    if (!rawSvcId) return fail("service_id is required");
+    const numSvcId = Number(rawSvcId);
+    const service = !isNaN(numSvcId) && numSvcId > 0
+      ? await prisma.service.findUnique({ where: { seqId: numSvcId } })
+      : await prisma.service.findUnique({ where: { id: rawSvcId } });
     if (!service) return fail("Service not found");
+    const serviceId = service.id;
 
-    const certificateId = fields.certificateId ?? fields.certificate_id ?? null;
+    // Certificate: resolve by seqId (int) or cuid string
+    const rawCertId = fields.certificateId ?? fields.certificate_id;
+    let certificateId: string | null = null;
+    if (rawCertId) {
+      const numCertId = Number(rawCertId);
+      const cert = !isNaN(numCertId) && numCertId > 0
+        ? await prisma.certificate.findUnique({ where: { seqId: numCertId } })
+        : await prisma.certificate.findUnique({ where: { id: rawCertId } });
+      certificateId = cert?.id ?? null;
+    }
     const certificateNumber =
       fields.certificateNumber ?? fields.certificate_number ?? null;
     const noExpiryRaw = fields.noExpiry ?? fields.no_expiry ?? "1";
