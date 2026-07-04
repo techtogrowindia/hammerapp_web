@@ -27,6 +27,16 @@ const BADGES = [
   { name: "New", color: "#3b82f6" },
 ];
 
+// Shop product categories (max 3 selectable per shop) + sample subcategories.
+const PRODUCT_CATEGORIES = [
+  { name: "Electrical", subs: ["Wires & Cables", "Switches & Sockets", "Lighting", "MCB & Distribution"] },
+  { name: "Plumbing", subs: ["Pipes & Fittings", "Taps & Faucets", "Sanitaryware", "Water Tanks"] },
+  { name: "Hardware & Tools", subs: ["Hand Tools", "Power Tools", "Fasteners", "Safety Gear"] },
+  { name: "Paints & Coatings", subs: ["Interior Paints", "Exterior Paints", "Primers", "Brushes & Rollers"] },
+  { name: "Building Material", subs: ["Cement", "Steel", "Bricks & Blocks", "Tiles"] },
+  { name: "Home Appliances", subs: ["Fans", "Water Heaters", "Air Coolers", "Small Appliances"] },
+];
+
 async function main() {
   console.log("🌱 Seeding master data...");
 
@@ -49,6 +59,24 @@ async function main() {
 
   for (const b of BADGES) {
     await prisma.badge.upsert({ where: { name: b.name }, create: b, update: {} });
+  }
+
+  for (const pc of PRODUCT_CATEGORIES) {
+    const cat = await prisma.productCategory.upsert({
+      where: { name: pc.name },
+      create: { name: pc.name },
+      update: {},
+    });
+    for (const subName of pc.subs) {
+      const existing = await prisma.productSubcategory.findFirst({
+        where: { name: subName, productCategoryId: cat.id },
+      });
+      if (!existing) {
+        await prisma.productSubcategory.create({
+          data: { name: subName, productCategoryId: cat.id },
+        });
+      }
+    }
   }
 
   const adminEmail = "admin@hammerapp.in";

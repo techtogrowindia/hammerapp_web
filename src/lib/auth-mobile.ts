@@ -1,7 +1,11 @@
 import type { NextRequest } from "next/server";
-import { verifyTechnicianToken, type TechnicianTokenPayload } from "./jwt";
+import {
+  verifyTechnicianToken,
+  verifyShopToken,
+  type TechnicianTokenPayload,
+} from "./jwt";
 import { prisma } from "./prisma";
-import type { Technician } from "@prisma/client";
+import type { Technician, Shop } from "@prisma/client";
 
 const PREAUTH_TOKEN = process.env.MOBILE_PREAUTH_TOKEN ?? "12345678";
 
@@ -34,4 +38,19 @@ export async function getAuthTechnician(
   if (!payload?.sub) return null;
 
   return prisma.technician.findUnique({ where: { id: payload.sub } });
+}
+
+/**
+ * Resolves the authenticated shop from the session JWT (kind=shop).
+ * Returns null when the token is missing, invalid, or the shop no
+ * longer exists.
+ */
+export async function getAuthShop(req: NextRequest): Promise<Shop | null> {
+  const token = extractBearer(req);
+  if (!token) return null;
+
+  const payload = verifyShopToken(token);
+  if (!payload?.sub) return null;
+
+  return prisma.shop.findUnique({ where: { id: payload.sub } });
 }

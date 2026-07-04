@@ -24,3 +24,29 @@ export function verifyTechnicianToken(
     return null;
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// Shop tokens (sub = shop.id, which is an integer)
+// ─────────────────────────────────────────────────────────────
+
+export interface ShopTokenPayload {
+  sub: number; // shop.id (integer)
+  code: string; // shop.code (e.g. S2607040001)
+  mobile: string;
+  kind: "shop";
+}
+
+export function signShopToken(payload: Omit<ShopTokenPayload, "kind">): string {
+  return jwt.sign({ ...payload, kind: "shop" }, JWT_SECRET, {
+    expiresIn: JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
+  });
+}
+
+export function verifyShopToken(token: string): ShopTokenPayload | null {
+  try {
+    const p = jwt.verify(token, JWT_SECRET) as unknown as ShopTokenPayload;
+    return p?.kind === "shop" ? p : null;
+  } catch {
+    return null;
+  }
+}

@@ -28,3 +28,24 @@ export async function generateTechnicianCode(
   const sequence = String(countToday + 1).padStart(4, "0");
   return `${codePrefix}${sequence}`;
 }
+
+/**
+ * Generates the shop public unique ID: S{YYMMDD}{sequence:4}
+ * e.g. S2607040001 — sequence resets per date. Same scheme as technician.
+ */
+export async function generateShopCode(
+  date: Date = new Date(),
+): Promise<string> {
+  const prefix: EntityPrefix = "S";
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const codePrefix = `${prefix}${yy}${mm}${dd}`;
+
+  const countToday = await prisma.shop.count({
+    where: { code: { startsWith: codePrefix } },
+  });
+
+  const sequence = String(countToday + 1).padStart(4, "0");
+  return `${codePrefix}${sequence}`;
+}

@@ -44,36 +44,48 @@ enum CompanyType {
   LLP
 }
 
+// Shop firm type (mobile app sends proprietorship | partnership | privatelimited)
+enum FirmType {
+  PROPRIETORSHIP
+  PARTNERSHIP
+  PRIVATE_LIMITED
+}
+
+enum BankAccountType {
+  SAVINGS
+  CURRENT
+}
+
 // ─────────────────────────────────────────────────────────────
 // Technician (core mobile user)
 // ─────────────────────────────────────────────────────────────
 
 model Technician {
-  id        String        @id @default(cuid())
+  id     String        @id @default(cuid())
   // Public unique ID e.g. T2607040001 — {T}{YYMMDD}{sequence:4}
-  code      String        @unique
-  name      String?
-  mobile    String        @unique
-  email     String?
-  status    AccountStatus @default(INACTIVE)
+  code   String        @unique
+  name   String?
+  mobile String        @unique
+  email  String?
+  status AccountStatus @default(INACTIVE)
 
   // Overall onboarding KYC status (rolls up the 5 legal steps)
-  kycStatus KycStatus     @default(NOT_STARTED)
+  kycStatus KycStatus @default(NOT_STARTED)
 
   // FCM token for push notifications
-  fcmToken  String?
+  fcmToken String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  personalKyc      PersonalKyc?
-  education        EducationQualification?
-  bankKyc          BankKyc?
-  companyKyc       CompanyKyc?
-  documents        DocumentKyc[]
-  signature        Signature?
+  personalKyc       PersonalKyc?
+  education         EducationQualification?
+  bankKyc           BankKyc?
+  companyKyc        CompanyKyc?
+  documents         DocumentKyc[]
+  signature         Signature?
   serviceCategories TechnicianServiceCategory[]
-  otps             Otp[]
+  otps              Otp[]
 
   @@index([mobile])
   @@index([kycStatus])
@@ -85,7 +97,7 @@ model Technician {
 // ─────────────────────────────────────────────────────────────
 
 model Otp {
-  id           String   @id @default(cuid())
+  id           String     @id @default(cuid())
   technicianId String
   technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
 
@@ -122,12 +134,12 @@ model PersonalKyc {
   state        String?
   pincode      String?
   locationId   String?
-  location     Location?  @relation(fields: [locationId], references: [id])
+  location     Location? @relation(fields: [locationId], references: [id])
 
   profilePhoto String?
 
-  status       KycStatus  @default(NOT_STARTED)
-  remark       String?
+  status KycStatus @default(NOT_STARTED)
+  remark String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -142,13 +154,13 @@ model EducationQualification {
   technicianId String     @unique
   technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
 
-  qualification String?
-  institution   String?
-  yearOfPassing Int?
+  qualification   String?
+  institution     String?
+  yearOfPassing   Int?
   certificateFile String?
 
-  status       KycStatus  @default(NOT_STARTED)
-  remark       String?
+  status KycStatus @default(NOT_STARTED)
+  remark String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -167,12 +179,12 @@ model TechnicianServiceCategory {
   serviceCategory   ServiceCategory @relation(fields: [serviceCategoryId], references: [id], onDelete: Cascade)
 
   // Optional supporting certificate for this service
-  certificateId String?
-  certificate   Certificate? @relation(fields: [certificateId], references: [id])
+  certificateId   String?
+  certificate     Certificate? @relation(fields: [certificateId], references: [id])
   certificateFile String?
 
-  status    KycStatus  @default(PENDING)
-  createdAt DateTime   @default(now())
+  status    KycStatus @default(PENDING)
+  createdAt DateTime  @default(now())
 
   @@unique([technicianId, serviceCategoryId])
   @@index([technicianId])
@@ -195,8 +207,8 @@ model BankKyc {
   upiId         String?
   passbookFile  String? @map("passbook_file")
 
-  status       KycStatus  @default(NOT_STARTED)
-  remark       String?
+  status KycStatus @default(NOT_STARTED)
+  remark String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -211,15 +223,15 @@ model CompanyKyc {
   technicianId String     @unique
   technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
 
-  companyType  CompanyType @default(INDIVIDUAL)
-  companyName  String?
-  gstNumber    String?
-  gstVerified  Boolean     @default(false)
-  panNumber    String?
+  companyType        CompanyType @default(INDIVIDUAL)
+  companyName        String?
+  gstNumber          String?
+  gstVerified        Boolean     @default(false)
+  panNumber          String?
   registrationNumber String?
 
-  status       KycStatus  @default(NOT_STARTED)
-  remark       String?
+  status KycStatus @default(NOT_STARTED)
+  remark String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -234,13 +246,13 @@ model DocumentKyc {
   technicianId String
   technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
 
-  docType   String   // AADHAAR | PAN | DRIVING_LICENSE | ...
+  docType   String // AADHAAR | PAN | DRIVING_LICENSE | ...
   docNumber String?
   frontFile String?
   backFile  String?
 
-  status    KycStatus  @default(PENDING)
-  remark    String?
+  status KycStatus @default(PENDING)
+  remark String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -280,13 +292,13 @@ model ServiceCategory {
 }
 
 model Certificate {
-  id                String   @id @default(cuid())
+  id                String           @id @default(cuid())
   name              String
   serviceCategoryId String?
   serviceCategory   ServiceCategory? @relation(fields: [serviceCategoryId], references: [id])
-  active            Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  active            Boolean          @default(true)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   technicianLinks TechnicianServiceCategory[]
 }
@@ -317,7 +329,7 @@ model Badge {
 model RejectReason {
   id        String   @id @default(cuid())
   reason    String
-  category  String?  // which KYC step it applies to
+  category  String? // which KYC step it applies to
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -328,7 +340,261 @@ model BloodGroup {
   name      String   @unique // A+, A-, O+, ...
   createdAt DateTime @default(now())
 
-  personalKycs PersonalKyc[]
+  personalKycs     PersonalKyc[]
+  shopPersonalKycs ShopPersonalKyc[]
+}
+
+// ─────────────────────────────────────────────────────────────
+// SHOP (Phase 2) — mobile user for the Hammer Shop Flutter app.
+//
+// ⚠️ Mobile contract differences vs Technician (verified against
+// techtogrowindia/hammer_shop):
+//   • Response envelope key is `success` (not `status`), token at top level.
+//   • `id` is exposed to the app as an integer → Shop uses Int PK,
+//     `code` (S{YYMMDD}{seq}) is the `unique_id`.
+//   • Password auth (create takes password, login = mobile+password),
+//     OTP only verifies the mobile number.
+//   • `product_category_id` / `product_subcategory_id` are integers.
+// ─────────────────────────────────────────────────────────────
+
+model Shop {
+  id             Int           @id @default(autoincrement())
+  code           String        @unique // S{YYMMDD}{seq} — exposed as unique_id
+  name           String?
+  mobile         String        @unique
+  email          String?
+  password       String? // bcrypt hash
+  status         AccountStatus @default(INACTIVE)
+  mobileVerified Boolean       @default(false)
+
+  kycStatus KycStatus @default(NOT_STARTED)
+
+  // ₹ one-time non-refundable registration fee (Razorpay). Gates activation.
+  registrationPaid Boolean @default(false)
+
+  fcmToken String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  personalKyc       ShopPersonalKyc?
+  companyKyc        ShopCompanyKyc?
+  bankKyc           ShopBankKyc?
+  partners          ShopPartner[]
+  productCategories ShopProductCategory[]
+  documents         ShopDocumentKyc[]
+  signature         ShopSignature?
+  otps              ShopOtp[]
+  payments          ShopPayment[]
+
+  @@index([mobile])
+  @@index([kycStatus])
+  @@index([status])
+}
+
+model ShopOtp {
+  id     String @id @default(cuid())
+  shopId Int
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  mobile    String
+  code      String
+  purpose   String   @default("LOGIN") // LOGIN | REGISTER | FORGOT_PASSWORD | MOBILE_VERIFY | KYC_FINAL_VERIFICATION
+  consumed  Boolean  @default(false)
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([shopId])
+  @@index([mobile, code])
+}
+
+model ShopPersonalKyc {
+  id     String @id @default(cuid())
+  shopId Int    @unique
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  name         String?
+  dob          DateTime?
+  bloodGroupId String?
+  bloodGroup   BloodGroup? @relation(fields: [bloodGroupId], references: [id])
+  aadharNumber String?
+  panNumber    String?
+  firmType     FirmType?
+  businessPan  String?
+
+  address         String?
+  cityTownVillage String?
+  taluk           String?
+  district        String?
+  pincode         String?
+
+  profilePhoto String?
+
+  status KycStatus @default(NOT_STARTED)
+  remark String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ShopPartner {
+  id     String @id @default(cuid())
+  shopId Int
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  name      String
+  panNumber String?
+  createdAt DateTime @default(now())
+
+  @@index([shopId])
+}
+
+model ShopCompanyKyc {
+  id     String @id @default(cuid())
+  shopId Int    @unique
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  hasGst      Boolean @default(false)
+  gstNumber   String?
+  gstVerified Boolean @default(false)
+  legalName   String?
+
+  companyName       String?
+  companyAddress    String?
+  cityTownVillage   String?
+  taluk             String?
+  district          String?
+  companyPincode    String?
+  numberOfEmployees Int?
+
+  status KycStatus @default(NOT_STARTED)
+  remark String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ShopBankKyc {
+  id     String @id @default(cuid())
+  shopId Int    @unique
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  bankName      String?
+  accountHolder String?
+  accountNumber String?
+  accountType   BankAccountType?
+  ifsc          String?
+  branch        String?
+  upiId         String?
+  passbookFile  String?
+
+  status KycStatus @default(NOT_STARTED)
+  remark String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ShopDocumentKyc {
+  id     String @id @default(cuid())
+  shopId Int
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  docType   String // AADHAAR | PAN | BANK_PASSBOOK | PHOTO | GST | SHOP_PHOTO
+  docNumber String?
+  frontFile String?
+  backFile  String?
+
+  // Geotag for the shop photo with name board (LAT/LONG/TIME).
+  latitude   Float?
+  longitude  Float?
+  capturedAt DateTime?
+
+  status KycStatus @default(PENDING)
+  remark String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shopId])
+}
+
+model ShopSignature {
+  id     String @id @default(cuid())
+  shopId Int    @unique
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  file      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ShopPayment {
+  // Int PK — exposed to the app as `order_id` (see payment-update contract).
+  id     Int  @id @default(autoincrement())
+  shopId Int
+  shop   Shop @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  provider  String    @default("RAZORPAY")
+  purpose   String    @default("REGISTRATION_FEE")
+  orderId   String?
+  paymentId String?
+  amount    Int // in paise
+  currency  String    @default("INR")
+  status    String    @default("CREATED") // CREATED | PAID | FAILED
+  paidAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shopId])
+}
+
+// Product master data (int PK — mobile sends product_category_id as int).
+model ProductCategory {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  icon        String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  subcategories ProductSubcategory[]
+  shopLinks     ShopProductCategory[]
+}
+
+model ProductSubcategory {
+  id                Int             @id @default(autoincrement())
+  name              String
+  productCategoryId Int
+  productCategory   ProductCategory @relation(fields: [productCategoryId], references: [id], onDelete: Cascade)
+  active            Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  shopLinks ShopProductCategory[]
+
+  @@index([productCategoryId])
+}
+
+// Shop ↔ product category (max 3, enforced in the API/UI).
+model ShopProductCategory {
+  id     String @id @default(cuid())
+  shopId Int
+  shop   Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  productCategoryId Int
+  productCategory   ProductCategory @relation(fields: [productCategoryId], references: [id], onDelete: Cascade)
+
+  productSubcategoryId Int?
+  productSubcategory   ProductSubcategory? @relation(fields: [productSubcategoryId], references: [id])
+
+  status    KycStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+
+  @@index([shopId])
 }
 
 // ─────────────────────────────────────────────────────────────

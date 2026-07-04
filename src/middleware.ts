@@ -48,6 +48,12 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Only the mobile API needs CORS — NextAuth (/api/auth) is same-origin.
-  matcher: ["/api/technician/:path*", "/api/health"],
+  // Only the mobile APIs need CORS — NextAuth (/api/auth) is same-origin.
+  matcher: [
+    "/api/technician/:path*",
+    "/api/shop/:path*",
+    "/api/general/:path*",
+    "/api/payment/:path*",
+    "/api/health",
+  ],
 };
