@@ -10,7 +10,6 @@ import { ArrowLeft, Phone, Mail, Calendar, Pencil, CheckCircle2, Circle } from "
 
 export const dynamic = "force-dynamic";
 
-// Admin panel loads files same-origin via NGINX (/uploads → /var/www/hammer-uploads).
 const UPLOAD_BASE = "/uploads";
 
 function fileUrl(path?: string | null) {
@@ -23,7 +22,6 @@ function fmtDate(d?: Date | null) {
   return d ? d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : null;
 }
 
-/** Human label for a raw docType + side. */
 function docLabel(docType: string, side: "front" | "back"): string {
   const t = docType.toUpperCase();
   if (t.includes("AADHA")) return side === "front" ? "Aadhar Front" : "Aadhar Back";
@@ -69,6 +67,7 @@ export default async function TechnicianDetailPage({
   const p = t.personalKyc;
   const b = t.bankKyc;
   const c = t.companyKyc;
+  const e = t.education;
 
   const servicesStatus = t.serviceCategories.length ? t.serviceCategories[0].status : "NOT_STARTED";
   const documentsStatus = t.documents.length ? t.documents[0].status : "NOT_STARTED";
@@ -81,7 +80,7 @@ export default async function TechnicianDetailPage({
     document: documentsStatus,
   };
 
-  // ── Assemble the uploaded-documents list for the viewer ──
+  // ── Assemble uploaded-documents list ──
   const docs: DocFile[] = [];
   const push = (label: string, path?: string | null) => {
     const url = fileUrl(path);
@@ -95,15 +94,18 @@ export default async function TechnicianDetailPage({
   }
   push("Bank Passbook", b?.passbookFile);
   push("Signature", t.signature?.file);
-  // Service certificates → one tab per file, numbered.
+  // Education certificate
+  if (e?.certificateFile) {
+    push("Education Certificate", e.certificateFile);
+  }
+  // Service certificates — one tab per file
   const certs = t.serviceCategories.filter((s) => s.certificateFile);
   certs.forEach((s, i) => {
     const name = s.certificate?.name ?? s.serviceCategory.name;
-    push(certs.length > 1 ? `${name} (File ${i + 1})` : name, s.certificateFile);
+    push(certs.length > 1 ? `${name} (Cert ${i + 1})` : `${name} (Cert)`, s.certificateFile);
   });
 
   const gstVerified = c?.gstVerified ?? false;
-
   const aadhaarDoc = t.documents.find((d) => d.docType.toUpperCase().includes("AADHA"));
   const aadhaarNumber = aadhaarDoc?.docNumber;
 
@@ -196,7 +198,7 @@ export default async function TechnicianDetailPage({
         </div>
       )}
 
-      {/* Documents + Personal */}
+      {/* Documents + Right panels */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Uploaded Documents */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-[var(--border)] p-6">
@@ -205,40 +207,98 @@ export default async function TechnicianDetailPage({
               <h2 className="text-lg font-semibold text-slate-800">Uploaded Documents</h2>
               <p className="text-xs text-slate-500 mt-0.5">{docs.length} uploaded</p>
             </div>
+            <div className="flex items-center gap-3">
+              <StatusBadge status={documentsStatus} />
+              <a href="#doc-review" className="text-xs text-[var(--accent)] hover:underline font-medium">Change status ↓</a>
+            </div>
           </div>
           <DocumentViewer documents={docs} />
         </div>
 
-        {/* Personal panel */}
-        <div className="bg-white rounded-xl border border-[var(--border)] p-6">
-          <h2 className="text-lg font-semibold text-slate-800 mb-4">Personal</h2>
-          <dl className="space-y-3 text-sm">
-            <Field label="Name" value={p?.fullName ?? t.name} />
-            <Field label="Mobile" value={t.mobile} />
-            <Field label="Email" value={t.email} />
-            <Field label="Gender" value={p?.gender} />
-            <Field label="Date of birth" value={fmtDate(p?.dob)} />
-            <Field label="Blood group" value={p?.bloodGroup?.name} />
-            <Field label="Aadhaar No." value={aadhaarNumber} />
-            <Field label="PAN" value={c?.panNumber} />
-            <Field label="Address" value={[p?.addressLine1, p?.addressLine2].filter(Boolean).join(", ")} />
-            <Field label="City" value={p?.city} />
-            <Field label="State" value={p?.state} />
-            <Field label="Pincode" value={p?.pincode} />
-            <Field label="Location" value={p?.location?.name} />
-            <Field label="Bank" value={b?.bankName} />
-            <Field label="Account no." value={b?.accountNumber} />
-            <Field label="IFSC" value={b?.ifsc} />
-            <Field label="UPI ID" value={b?.upiId} />
-            <Field label="Company" value={c?.companyName} />
-            <Field label="GST" value={c?.gstNumber} />
-            <Field label="Company type" value={c?.companyType} />
-          </dl>
+        {/* Right sidebar — multiple cards */}
+        <div className="space-y-4">
+          {/* Personal */}
+          <SideCard title="Personal">
+            <dl className="space-y-2.5 text-sm">
+              <Field label="Name" value={p?.fullName ?? t.name} />
+              <Field label="Mobile" value={t.mobile} />
+              <Field label="Email" value={t.email} />
+              <Field label="Gender" value={p?.gender} />
+              <Field label="Date of birth" value={fmtDate(p?.dob)} />
+              <Field label="Blood group" value={p?.bloodGroup?.name} />
+              <Field label="Aadhaar No." value={aadhaarNumber} />
+              <Field label="PAN" value={c?.panNumber} />
+              <Field label="Address" value={[p?.addressLine1, p?.addressLine2].filter(Boolean).join(", ")} />
+              <Field label="City" value={p?.city} />
+              <Field label="State" value={p?.state} />
+              <Field label="Pincode" value={p?.pincode} />
+              <Field label="Location" value={p?.location?.name} />
+            </dl>
+          </SideCard>
+
+          {/* Bank */}
+          {b && (
+            <SideCard title="Bank Details">
+              <dl className="space-y-2.5 text-sm">
+                <Field label="Bank" value={b.bankName} />
+                <Field label="Account holder" value={b.accountHolder} />
+                <Field label="Account no." value={b.accountNumber} />
+                <Field label="IFSC" value={b.ifsc} />
+                <Field label="Branch" value={b.branch} />
+                <Field label="UPI ID" value={b.upiId} />
+              </dl>
+            </SideCard>
+          )}
+
+          {/* Company */}
+          {c && (
+            <SideCard title="Company / Firm">
+              <dl className="space-y-2.5 text-sm">
+                <Field label="Type" value={c.companyType} />
+                <Field label="Company" value={c.companyName} />
+                <Field label="GST" value={c.gstNumber} />
+                <Field label="Registration no." value={c.registrationNumber} />
+              </dl>
+            </SideCard>
+          )}
+
+          {/* Education */}
+          {e && (
+            <SideCard title="Education Qualification" badge={e.certificateFile ? "Certificate: 1" : undefined}>
+              <dl className="space-y-2.5 text-sm">
+                <Field label="Qualification" value={e.qualification} />
+                <Field label="Institution" value={e.institution} />
+                <Field label="Year of passing" value={e.yearOfPassing != null ? String(e.yearOfPassing) : null} />
+              </dl>
+            </SideCard>
+          )}
+
+          {/* Service Certificates */}
+          {certs.length > 0 && (
+            <SideCard title="Service Certificates" badge={`Uploads: ${certs.length}`}>
+              <ul className="space-y-3">
+                {certs.map((s) => (
+                  <li key={s.id} className="text-sm border-t border-[var(--border)] pt-3 first:border-0 first:pt-0">
+                    <p className="font-medium text-slate-800">{s.serviceCategory.name}</p>
+                    {s.certificate && (
+                      <p className="text-xs text-slate-500 mt-0.5">Certificate: {s.certificate.name}</p>
+                    )}
+                    {s.certificateFile && fileUrl(s.certificateFile) && (
+                      <a href={fileUrl(s.certificateFile)!} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-[var(--accent)] hover:underline mt-0.5 inline-block">
+                        View file
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </SideCard>
+          )}
         </div>
       </div>
 
-      {/* KYC review actions (approve / reject / clarify per step) */}
-      <div className="space-y-4">
+      {/* KYC review actions */}
+      <div className="space-y-4" id="doc-review">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-500">Review & Update KYC</h2>
 
         <KycStepCard technicianId={t.id} step="profile" title="1 · Profile KYC" status={p?.status ?? "NOT_STARTED"} remark={p?.remark}
@@ -286,11 +346,31 @@ export default async function TechnicianDetailPage({
   );
 }
 
+function SideCard({
+  title,
+  badge,
+  children,
+}: {
+  title: string;
+  badge?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-white rounded-xl border border-[var(--border)] overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border)] bg-slate-50">
+        <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
+        {badge && <span className="text-xs text-slate-400">{badge}</span>}
+      </div>
+      <div className="px-5 py-4">{children}</div>
+    </div>
+  );
+}
+
 function Field({ label, value }: { label: string; value?: React.ReactNode }) {
   return (
     <div>
-      <dt className="text-xs uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="text-slate-700 mt-0.5">{value || "—"}</dd>
+      <dt className="text-[10px] uppercase tracking-wider text-slate-400">{label}</dt>
+      <dd className="text-slate-700 mt-0.5 text-sm">{value || <span className="text-slate-300">—</span>}</dd>
     </div>
   );
 }
