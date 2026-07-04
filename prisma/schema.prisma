@@ -289,6 +289,45 @@ model ServiceCategory {
 
   technicianLinks TechnicianServiceCategory[]
   certificates    Certificate[]
+  subcategories   ServiceSubcategory[]
+  services        Service[]
+}
+
+// Level 2 of the services taxonomy (e.g. "New Wiring" under "Electrician").
+model ServiceSubcategory {
+  id                String          @id @default(cuid())
+  name              String
+  serviceCategoryId String
+  serviceCategory   ServiceCategory @relation(fields: [serviceCategoryId], references: [id], onDelete: Cascade)
+  active            Boolean         @default(true)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  services Service[]
+
+  @@unique([serviceCategoryId, name])
+  @@index([serviceCategoryId])
+}
+
+// Level 3: an individual bookable service with tax + SAC code (customer-facing).
+model Service {
+  id                   String              @id @default(cuid())
+  name                 String
+  serviceCategoryId    String
+  serviceCategory      ServiceCategory     @relation(fields: [serviceCategoryId], references: [id], onDelete: Cascade)
+  serviceSubcategoryId String?
+  serviceSubcategory   ServiceSubcategory? @relation(fields: [serviceSubcategoryId], references: [id])
+
+  taxPercent Float   @default(0) // GST %, e.g. 5 / 12 / 18
+  sacCode    String? // SAC/HSN code for billing
+  image      String?
+  active     Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceCategoryId])
+  @@index([serviceSubcategoryId])
 }
 
 model Certificate {
