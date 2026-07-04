@@ -60,17 +60,36 @@ async function upsertPersonalKyc(req: NextRequest) {
         ? (fields.gender.toUpperCase() as Gender)
         : undefined;
 
+    const dobRaw = fields.dob ?? fields.date_of_birth;
+    const bool = (v?: string) =>
+      v === undefined ? undefined : ["1", "true", "yes"].includes(v.toLowerCase());
+
+    // Blood group may arrive as an id or as a name (app sends the name string).
+    let bloodGroupId = fields.bloodGroupId ?? fields.blood_group_id;
+    const bgName = fields.blood_group ?? fields.bloodGroup;
+    if (!bloodGroupId && bgName) {
+      const bg = await prisma.bloodGroup.findFirst({ where: { name: bgName } });
+      if (bg) bloodGroupId = bg.id;
+    }
+
     const data = {
-      fullName: fields.fullName ?? fields.full_name,
-      dob: fields.dob ? new Date(fields.dob) : undefined,
+      fullName: fields.fullName ?? fields.full_name ?? fields.name,
+      dob: dobRaw ? new Date(dobRaw) : undefined,
       gender,
-      bloodGroupId: fields.bloodGroupId ?? fields.blood_group_id,
-      addressLine1: fields.addressLine1 ?? fields.address_line1,
+      bloodGroupId,
+      aadharNumber: fields.aadharNumber ?? fields.aadhar_number,
+      panNumber: fields.panNumber ?? fields.pan_number,
+      addressLine1: fields.addressLine1 ?? fields.address_line1 ?? fields.address,
       addressLine2: fields.addressLine2 ?? fields.address_line2,
-      city: fields.city,
+      city: fields.city ?? fields.city_town_village,
+      taluk: fields.taluk,
+      district: fields.district,
       state: fields.state,
       pincode: fields.pincode,
       locationId: fields.locationId ?? fields.location_id,
+      domestic: bool(fields.domestic),
+      commercial: bool(fields.commercial),
+      corporate: bool(fields.corporate),
       ...(profilePhoto ? { profilePhoto } : {}),
       status: "PENDING" as const,
     };

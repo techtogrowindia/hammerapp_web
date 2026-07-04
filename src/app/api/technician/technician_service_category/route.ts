@@ -18,12 +18,60 @@ export async function GET(req: NextRequest) {
   return ok(records, "Service categories fetched");
 }
 
-// POST — add a service category (optionally with certificate file)
+// POST — add service categories. Accepts either a single entry (JSON/multipart)
+// or the app's batch format { technician_service_category: [{ category_id, years_of_experience }] }.
 export async function POST(req: NextRequest) {
   const tech = await getAuthTechnician(req);
   if (!tech) return unauthorized();
 
   try {
+    // ── Batch format from the app ──
+    if (!isMultipart(req)) {
+      const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
+      const batch =
+        (body.technician_service_category as unknown[] | undefined) ??
+        (body.categories as unknown[] | undefined);
+
+      if (Array.isArray(batch)) {
+        const results = [];
+        for (const raw of batch) {
+          const item = raw as Record<string, unknown>;
+          const serviceCategoryId = String(
+            item.category_id ?? item.serviceCategoryId ?? item.id ?? "",
+          );
+          if (!serviceCategoryId) continue;
+          const category = await prisma.serviceCategory.findUnique({
+            where: { id: serviceCategoryId },
+          });
+          if (!category) continue;
+          const yoe =
+            item.years_of_experience != null
+              ? Number(item.years_of_experience)
+              : null;
+          const rec = await prisma.technicianServiceCategory.upsert({
+            where: {
+              technicianId_serviceCategoryId: {
+                technicianId: tech.id,
+                serviceCategoryId,
+              },
+            },
+            create: {
+              technicianId: tech.id,
+              serviceCategoryId,
+              yearsOfExperience: yoe,
+              status: "PENDING",
+            },
+            update: { yearsOfExperience: yoe, status: "PENDING" },
+            include: { serviceCategory: true, certificate: true },
+          });
+          results.push(rec);
+        }
+        await recomputeKycStatus(tech.id);
+        return created(results, "Service categories saved");
+      }
+    }
+
+    // ── Single-entry format (admin / legacy) ──
     const fields: Record<string, string> = {};
     let certificateFile: string | undefined;
 
@@ -45,7 +93,7 @@ export async function POST(req: NextRequest) {
     }
 
     const serviceCategoryId =
-      fields.serviceCategoryId ?? fields.service_category_id;
+      fields.serviceCategoryId ?? fields.service_category_id ?? fields.category_id;
     if (!serviceCategoryId) return fail("serviceCategoryId is required");
 
     const category = await prisma.serviceCategory.findUnique({
@@ -54,6 +102,7 @@ export async function POST(req: NextRequest) {
     if (!category) return notFound("Service category not found");
 
     const certificateId = fields.certificateId ?? fields.certificate_id ?? null;
+    const yoeRaw = fields.yearsOfExperience ?? fields.years_of_experience;
 
     const record = await prisma.technicianServiceCategory.upsert({
       where: {
@@ -67,11 +116,13 @@ export async function POST(req: NextRequest) {
         serviceCategoryId,
         certificateId,
         certificateFile: certificateFile ?? null,
+        yearsOfExperience: yoeRaw ? Number(yoeRaw) : null,
         status: "PENDING",
       },
       update: {
         certificateId,
         ...(certificateFile ? { certificateFile } : {}),
+        ...(yoeRaw ? { yearsOfExperience: Number(yoeRaw) } : {}),
         status: "PENDING",
       },
       include: { serviceCategory: true, certificate: true },

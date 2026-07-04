@@ -82,14 +82,16 @@ model Technician {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  personalKyc       PersonalKyc?
-  education         EducationQualification?
-  bankKyc           BankKyc?
-  companyKyc        CompanyKyc?
-  documents         DocumentKyc[]
-  signature         Signature?
-  serviceCategories TechnicianServiceCategory[]
-  otps              Otp[]
+  personalKyc         PersonalKyc?
+  education           EducationQualification?
+  bankKyc             BankKyc?
+  companyKyc          CompanyKyc?
+  documents           DocumentKyc[]
+  signature           Signature?
+  serviceCategories   TechnicianServiceCategory[]
+  technicianServices  TechnicianService[]
+  serviceCertificates ServiceCertificate[]
+  otps                Otp[]
 
   @@index([mobile])
   @@index([kycStatus])
@@ -132,13 +134,24 @@ model PersonalKyc {
   bloodGroupId String?
   bloodGroup   BloodGroup? @relation(fields: [bloodGroupId], references: [id])
 
+  // Identity numbers (app sends these in personal_kyc)
+  aadharNumber String?
+  panNumber    String?
+
   addressLine1 String?
   addressLine2 String?
-  city         String?
+  city         String? // maps to app's city_town_village
+  taluk        String?
+  district     String?
   state        String?
   pincode      String?
   locationId   String?
   location     Location? @relation(fields: [locationId], references: [id])
+
+  // "Working field" chips — 3 independent booleans
+  domestic   Boolean @default(false)
+  commercial Boolean @default(false)
+  corporate  Boolean @default(false)
 
   profilePhoto String?
 
@@ -158,10 +171,11 @@ model EducationQualification {
   technicianId String     @unique
   technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
 
-  qualification   String?
+  qualification   String? // app's maximum_education_qualification
   institution     String?
-  yearOfPassing   Int?
-  certificateFile String?
+  yearOfPassing   Int? // app's passed_out_year
+  certificateFile String? // legacy single file (kept for back-compat)
+  certificateFiles String[] @default([]) // app's certificate_files[] — multiple
 
   status KycStatus @default(NOT_STARTED)
   remark String?
@@ -187,10 +201,51 @@ model TechnicianServiceCategory {
   certificate     Certificate? @relation(fields: [certificateId], references: [id])
   certificateFile String?
 
+  yearsOfExperience Int? // app sends per-category years_of_experience
+
   status    KycStatus @default(PENDING)
   createdAt DateTime  @default(now())
 
   @@unique([technicianId, serviceCategoryId])
+  @@index([technicianId])
+}
+
+// Leaf-level services the technician offers (app: technician_services — flat int list)
+model TechnicianService {
+  id           String     @id @default(cuid())
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  status    KycStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+
+  @@unique([technicianId, serviceId])
+  @@index([technicianId])
+}
+
+// Per-service certificate uploads (app: service_certificates — one per cert, files[])
+model ServiceCertificate {
+  id           String     @id @default(cuid())
+  technicianId String
+  technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
+
+  serviceId String?
+  service   Service? @relation(fields: [serviceId], references: [id])
+
+  certificateId String?
+  certificate   Certificate? @relation(fields: [certificateId], references: [id])
+
+  certificateNumber String?
+  noExpiry          Boolean  @default(true)
+  expiryDate        DateTime?
+  files             String[] @default([]) // app's files[] — multiple
+
+  status    KycStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+
   @@index([technicianId])
 }
 
@@ -228,11 +283,19 @@ model CompanyKyc {
   technician   Technician @relation(fields: [technicianId], references: [id], onDelete: Cascade)
 
   companyType        CompanyType @default(INDIVIDUAL)
+  companyAvailable   Boolean     @default(false) // app: "Do you have a Firm/Company?"
+  gstAvailable       Boolean     @default(false) // app: "Do you have GST?"
   companyName        String?
+  legalName          String? // app: legal_name (from GST)
   gstNumber          String?
   gstVerified        Boolean     @default(false)
   panNumber          String?
   registrationNumber String?
+  companyAddress     String?
+  cityTownVillage    String?
+  taluk              String?
+  district           String?
+  numberOfEmployees  Int?
 
   status KycStatus @default(NOT_STARTED)
   remark String?
@@ -330,6 +393,9 @@ model Service {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  technicianLinks     TechnicianService[]
+  serviceCertificates ServiceCertificate[]
+
   @@unique([serviceCategoryId, serviceSubcategoryId, name])
   @@index([serviceCategoryId])
   @@index([serviceSubcategoryId])
@@ -344,7 +410,8 @@ model Certificate {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
 
-  technicianLinks TechnicianServiceCategory[]
+  technicianLinks     TechnicianServiceCategory[]
+  serviceCertificates ServiceCertificate[]
 }
 
 model Location {

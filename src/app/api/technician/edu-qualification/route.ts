@@ -28,15 +28,22 @@ async function upsert(req: NextRequest) {
 
   try {
     const fields: Record<string, string> = {};
-    let certificateFile: string | undefined;
+    const newFiles: string[] = [];
 
     if (isMultipart(req)) {
       const form = await req.formData();
       for (const [k, v] of form.entries()) {
         if (v instanceof File && v.size > 0) {
-          if (k === "certificateFile" || k === "certificate_file") {
+          // Accept certificateFile / certificate_file / certificate_files[]
+          if (
+            k === "certificateFile" ||
+            k === "certificate_file" ||
+            k === "certificate_files" ||
+            k === "certificate_files[]" ||
+            k.startsWith("certificate_files")
+          ) {
             const stored = await saveUpload(v, "education", tech.code);
-            certificateFile = stored.path;
+            newFiles.push(stored.path);
           }
         } else {
           fields[k] = String(v);
@@ -49,12 +56,23 @@ async function upsert(req: NextRequest) {
       }
     }
 
-    const yearRaw = fields.yearOfPassing ?? fields.year_of_passing;
+    const yearRaw =
+      fields.yearOfPassing ?? fields.year_of_passing ?? fields.passed_out_year;
+
+    // Merge newly-uploaded files onto whatever is already stored.
+    const existing = await prisma.educationQualification.findUnique({
+      where: { technicianId: tech.id },
+    });
+    const certificateFiles = [...(existing?.certificateFiles ?? []), ...newFiles];
+
     const data = {
-      qualification: fields.qualification,
+      qualification:
+        fields.qualification ?? fields.maximum_education_qualification,
       institution: fields.institution,
       yearOfPassing: yearRaw ? Number(yearRaw) : undefined,
-      ...(certificateFile ? { certificateFile } : {}),
+      ...(newFiles.length
+        ? { certificateFile: newFiles[0], certificateFiles }
+        : {}),
       status: "PENDING" as const,
     };
 

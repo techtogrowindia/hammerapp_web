@@ -10,24 +10,33 @@ import { NextResponse } from "next/server";
  */
 export interface ApiEnvelope<T = unknown> {
   status: boolean;
+  /** Mirror of `status` — the current Flutter apps read `success`. */
+  success: boolean;
   message: string;
   data?: T;
+  /** Optional session token, surfaced top-level for the mobile apps. */
+  token?: string;
 }
 
-export function ok<T>(data?: T, message = "Success", init?: ResponseInit) {
+export function ok<T>(
+  data?: T,
+  message = "Success",
+  init?: ResponseInit & { token?: string },
+) {
+  const { token, ...rest } = init ?? {};
   return NextResponse.json<ApiEnvelope<T>>(
-    { status: true, message, data },
-    { status: 200, ...init },
+    { status: true, success: true, message, data, ...(token ? { token } : {}) },
+    { status: 200, ...rest },
   );
 }
 
-export function created<T>(data?: T, message = "Created") {
-  return ok(data, message, { status: 201 });
+export function created<T>(data?: T, message = "Created", token?: string) {
+  return ok(data, message, { status: 201, ...(token ? { token } : {}) });
 }
 
 export function fail(message: string, status = 400, data?: unknown) {
   return NextResponse.json<ApiEnvelope>(
-    { status: false, message, data },
+    { status: false, success: false, message, data },
     { status },
   );
 }

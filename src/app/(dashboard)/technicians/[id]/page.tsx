@@ -59,6 +59,10 @@ export default async function TechnicianDetailPage({
       documents: true,
       signature: true,
       serviceCategories: { include: { serviceCategory: true, certificate: true } },
+      technicianServices: {
+        include: { service: { include: { serviceCategory: true, serviceSubcategory: true } } },
+      },
+      serviceCertificates: { include: { service: true, certificate: true } },
     },
   });
 
@@ -94,20 +98,31 @@ export default async function TechnicianDetailPage({
   }
   push("Bank Passbook", b?.passbookFile);
   push("Signature", t.signature?.file);
-  // Education certificate
-  if (e?.certificateFile) {
-    push("Education Certificate", e.certificateFile);
-  }
-  // Service certificates — one tab per file
-  const certs = t.serviceCategories.filter((s) => s.certificateFile);
-  certs.forEach((s, i) => {
+  // Education certificates (multiple supported)
+  const eduFiles = e?.certificateFiles?.length ? e.certificateFiles : e?.certificateFile ? [e.certificateFile] : [];
+  eduFiles.forEach((f, i) => push(eduFiles.length > 1 ? `Education Certificate ${i + 1}` : "Education Certificate", f));
+  // Legacy per-category certificate file
+  const catCerts = t.serviceCategories.filter((s) => s.certificateFile);
+  catCerts.forEach((s, i) => {
     const name = s.certificate?.name ?? s.serviceCategory.name;
-    push(certs.length > 1 ? `${name} (Cert ${i + 1})` : `${name} (Cert)`, s.certificateFile);
+    push(catCerts.length > 1 ? `${name} (Cert ${i + 1})` : `${name} (Cert)`, s.certificateFile);
+  });
+  // Service certificates (new per-service model — each may hold multiple files)
+  t.serviceCertificates.forEach((sc) => {
+    const name = sc.service?.name ?? sc.certificate?.name ?? "Service Certificate";
+    sc.files.forEach((f, i) =>
+      push(sc.files.length > 1 ? `${name} (${i + 1})` : name, f),
+    );
   });
 
   const gstVerified = c?.gstVerified ?? false;
   const aadhaarDoc = t.documents.find((d) => d.docType.toUpperCase().includes("AADHA"));
   const aadhaarNumber = aadhaarDoc?.docNumber;
+  const workingFields = [
+    p?.domestic ? "Domestic" : null,
+    p?.commercial ? "Commercial" : null,
+    p?.corporate ? "Corporate" : null,
+  ].filter(Boolean).join(", ");
 
   return (
     <div className="space-y-5">
@@ -226,10 +241,13 @@ export default async function TechnicianDetailPage({
               <Field label="Gender" value={p?.gender} />
               <Field label="Date of birth" value={fmtDate(p?.dob)} />
               <Field label="Blood group" value={p?.bloodGroup?.name} />
-              <Field label="Aadhaar No." value={aadhaarNumber} />
-              <Field label="PAN" value={c?.panNumber} />
+              <Field label="Aadhaar No." value={p?.aadharNumber ?? aadhaarNumber} />
+              <Field label="PAN" value={p?.panNumber ?? c?.panNumber} />
+              <Field label="Working field" value={workingFields} />
               <Field label="Address" value={[p?.addressLine1, p?.addressLine2].filter(Boolean).join(", ")} />
-              <Field label="City" value={p?.city} />
+              <Field label="City / Town" value={p?.city} />
+              <Field label="Taluk" value={p?.taluk} />
+              <Field label="District" value={p?.district} />
               <Field label="State" value={p?.state} />
               <Field label="Pincode" value={p?.pincode} />
               <Field label="Location" value={p?.location?.name} />
@@ -254,9 +272,13 @@ export default async function TechnicianDetailPage({
           {c && (
             <SideCard title="Company / Firm">
               <dl className="space-y-2.5 text-sm">
+                <Field label="Has firm" value={c.companyAvailable ? "Yes" : "No"} />
                 <Field label="Type" value={c.companyType} />
                 <Field label="Company" value={c.companyName} />
-                <Field label="GST" value={c.gstNumber} />
+                <Field label="Legal name" value={c.legalName} />
+                <Field label="GST" value={c.gstAvailable ? (c.gstNumber ?? "Yes") : "No"} />
+                <Field label="No. of employees" value={c.numberOfEmployees != null ? String(c.numberOfEmployees) : null} />
+                <Field label="Address" value={[c.companyAddress, c.cityTownVillage, c.taluk, c.district].filter(Boolean).join(", ")} />
                 <Field label="Registration no." value={c.registrationNumber} />
               </dl>
             </SideCard>
@@ -264,20 +286,97 @@ export default async function TechnicianDetailPage({
 
           {/* Education */}
           {e && (
-            <SideCard title="Education Qualification" badge={e.certificateFile ? "Certificate: 1" : undefined}>
+            <SideCard title="Education Qualification" badge={eduFiles.length ? `Certificates: ${eduFiles.length}` : undefined}>
               <dl className="space-y-2.5 text-sm">
-                <Field label="Qualification" value={e.qualification} />
+                <Field label="Max qualification" value={e.qualification} />
                 <Field label="Institution" value={e.institution} />
                 <Field label="Year of passing" value={e.yearOfPassing != null ? String(e.yearOfPassing) : null} />
               </dl>
+              {eduFiles.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {eduFiles.map((f, i) => (
+                    <a key={i} href={fileUrl(f)!} target="_blank" rel="noopener noreferrer"
+                      className="text-xs px-2 py-1 rounded border border-[var(--border)] text-[var(--accent)] hover:bg-amber-50">
+                      Certificate {i + 1}
+                    </a>
+                  ))}
+                </div>
+              )}
             </SideCard>
           )}
 
-          {/* Service Certificates */}
-          {certs.length > 0 && (
-            <SideCard title="Service Certificates" badge={`Uploads: ${certs.length}`}>
+          {/* Selected Categories & Services */}
+          {(t.serviceCategories.length > 0 || t.technicianServices.length > 0) && (
+            <SideCard
+              title="Selected Categories & Services"
+              badge={`Cat: ${t.serviceCategories.length} · Svc: ${t.technicianServices.length}`}
+            >
+              {t.serviceCategories.length > 0 && (
+                <>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Categories</p>
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {t.serviceCategories.map((s) => (
+                      <span key={s.id} className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        {s.serviceCategory.name}
+                        {s.yearsOfExperience != null ? ` · ${s.yearsOfExperience}y` : ""}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
+              {t.technicianServices.length > 0 && (
+                <>
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400 mb-1.5">Services</p>
+                  <ul className="space-y-1.5">
+                    {t.technicianServices.map((ts) => (
+                      <li key={ts.id} className="text-sm text-slate-700">
+                        {ts.service.name}
+                        <span className="text-xs text-slate-400"> · {ts.service.serviceCategory.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </SideCard>
+          )}
+
+          {/* Service Certificates (new per-service model) */}
+          {t.serviceCertificates.length > 0 && (
+            <SideCard title="Service Certificates" badge={`Uploads: ${t.serviceCertificates.length}`}>
               <ul className="space-y-3">
-                {certs.map((s) => (
+                {t.serviceCertificates.map((sc) => (
+                  <li key={sc.id} className="text-sm border-t border-[var(--border)] pt-3 first:border-0 first:pt-0">
+                    <p className="font-medium text-slate-800">{sc.service?.name ?? "Service"}</p>
+                    {sc.certificate && (
+                      <p className="text-xs text-slate-500 mt-0.5">Certificate: {sc.certificate.name}</p>
+                    )}
+                    {sc.certificateNumber && (
+                      <p className="text-xs text-slate-500">Number: {sc.certificateNumber}</p>
+                    )}
+                    <p className="text-xs text-slate-500">
+                      Expiry: {sc.noExpiry ? "No expiry" : fmtDate(sc.expiryDate) ?? "—"}
+                    </p>
+                    {sc.files.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-2">
+                        {sc.files.map((f, i) => (
+                          <a key={i} href={fileUrl(f)!} target="_blank" rel="noopener noreferrer"
+                            className="text-xs px-2 py-0.5 rounded border border-[var(--border)] text-[var(--accent)] hover:bg-amber-50">
+                            File {i + 1}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </SideCard>
+          )}
+
+          {/* Legacy per-category certificates */}
+          {catCerts.length > 0 && (
+            <SideCard title="Category Certificates" badge={`Uploads: ${catCerts.length}`}>
+              <ul className="space-y-3">
+                {catCerts.map((s) => (
                   <li key={s.id} className="text-sm border-t border-[var(--border)] pt-3 first:border-0 first:pt-0">
                     <p className="font-medium text-slate-800">{s.serviceCategory.name}</p>
                     {s.certificate && (
@@ -307,7 +406,10 @@ export default async function TechnicianDetailPage({
             { label: "Date of birth", value: fmtDate(p?.dob) },
             { label: "Gender", value: p?.gender },
             { label: "Blood group", value: p?.bloodGroup?.name },
-            { label: "Address", value: [p?.addressLine1, p?.addressLine2, p?.city, p?.state, p?.pincode].filter(Boolean).join(", ") },
+            { label: "Aadhaar", value: p?.aadharNumber ?? aadhaarNumber },
+            { label: "PAN", value: p?.panNumber },
+            { label: "Working field", value: workingFields },
+            { label: "Address", value: [p?.addressLine1, p?.addressLine2, p?.city, p?.taluk, p?.district, p?.state, p?.pincode].filter(Boolean).join(", ") },
             { label: "Location", value: p?.location?.name },
           ]} />
 

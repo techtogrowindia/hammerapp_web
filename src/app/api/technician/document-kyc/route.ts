@@ -17,7 +17,41 @@ export async function GET(req: NextRequest) {
   return ok(records, "Documents fetched");
 }
 
-// POST — upload/replace a document of a given docType
+// The app posts ALL documents in a single multipart request, one named key
+// per file. Map each key → (docType, side).
+const KEYED_DOCS: Record<string, { docType: string; side: "front" | "back" }> = {
+  aadhar_front: { docType: "AADHAAR", side: "front" },
+  aadhar_back: { docType: "AADHAAR", side: "back" },
+  pan_card: { docType: "PAN", side: "front" },
+  bank_passbook: { docType: "BANK_PASSBOOK", side: "front" },
+  photo: { docType: "PROFILE_PHOTO", side: "front" },
+  license_front: { docType: "DRIVING_LICENSE", side: "front" },
+  license_back: { docType: "DRIVING_LICENSE", side: "back" },
+  company_photo: { docType: "COMPANY_PHOTO", side: "front" },
+  gst: { docType: "GST", side: "front" },
+};
+
+async function upsertDoc(
+  technicianId: string,
+  docType: string,
+  side: "front" | "back",
+  path: string,
+) {
+  const existing = await prisma.documentKyc.findFirst({ where: { technicianId, docType } });
+  const fileData = side === "back" ? { backFile: path } : { frontFile: path };
+  if (existing) {
+    return prisma.documentKyc.update({
+      where: { id: existing.id },
+      data: { ...fileData, status: "PENDING" },
+    });
+  }
+  return prisma.documentKyc.create({
+    data: { technicianId, docType, ...fileData, status: "PENDING" },
+  });
+}
+
+// POST — upload documents. Supports the app's keyed multipart (aadhar_front,
+// pan_card, …) AND the legacy single-docType format.
 export async function POST(req: NextRequest) {
   const tech = await getAuthTechnician(req);
   if (!tech) return unauthorized();
@@ -26,14 +60,30 @@ export async function POST(req: NextRequest) {
     const fields: Record<string, string> = {};
     let frontFile: string | undefined;
     let backFile: string | undefined;
+    const keyedResults = [];
 
     if (isMultipart(req)) {
       const form = await req.formData();
       for (const [k, v] of form.entries()) {
         if (v instanceof File && v.size > 0) {
-          const stored = await saveUpload(v, "document", tech.code);
-          if (k === "backFile" || k === "back_file") backFile = stored.path;
-          else frontFile = stored.path; // frontFile / file / default
+          const mapped = KEYED_DOCS[k];
+          if (mapped) {
+            // App keyed format — save straight into its docType row.
+            const stored = await saveUpload(v, "document", tech.code);
+            const rec = await upsertDoc(tech.id, mapped.docType, mapped.side, stored.path);
+            keyedResults.push(rec);
+            // Profile photo also mirrors into personalKyc for the avatar.
+            if (mapped.docType === "PROFILE_PHOTO") {
+              await prisma.personalKyc.updateMany({
+                where: { technicianId: tech.id },
+                data: { profilePhoto: stored.path },
+              });
+            }
+          } else {
+            const stored = await saveUpload(v, "document", tech.code);
+            if (k === "backFile" || k === "back_file") backFile = stored.path;
+            else frontFile = stored.path; // frontFile / file / default
+          }
         } else {
           fields[k] = String(v);
         }
@@ -43,6 +93,12 @@ export async function POST(req: NextRequest) {
       for (const [k, v] of Object.entries(body)) {
         if (v !== null && v !== undefined) fields[k] = String(v);
       }
+    }
+
+    // If we handled keyed uploads, return them.
+    if (keyedResults.length) {
+      await recomputeKycStatus(tech.id);
+      return created(keyedResults, "Documents uploaded");
     }
 
     const docType = (fields.docType ?? fields.doc_type)?.toUpperCase();

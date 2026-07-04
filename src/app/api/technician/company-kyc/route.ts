@@ -47,12 +47,24 @@ async function upsert(req: NextRequest) {
       ? (rawType as CompanyType)
       : undefined;
 
+    const bool = (v?: string) =>
+      v === undefined ? undefined : ["1", "true", "yes"].includes(v.toLowerCase());
+    const empRaw = fields.numberOfEmployees ?? fields.number_of_employees;
+
     const data = {
       ...(companyType ? { companyType } : {}),
+      companyAvailable: bool(fields.companyAvailable ?? fields.company_available),
+      gstAvailable: bool(fields.gstAvailable ?? fields.gst_available),
       companyName: fields.companyName ?? fields.company_name,
-      gstNumber: (fields.gstNumber ?? fields.gst_number)?.toUpperCase(),
+      legalName: fields.legalName ?? fields.legal_name,
+      gstNumber: (fields.gstNumber ?? fields.gst_number ?? fields.gstin)?.toUpperCase(),
       panNumber: (fields.panNumber ?? fields.pan_number)?.toUpperCase(),
       registrationNumber: fields.registrationNumber ?? fields.registration_number,
+      companyAddress: fields.companyAddress ?? fields.company_address,
+      cityTownVillage: fields.cityTownVillage ?? fields.city_town_village,
+      taluk: fields.taluk,
+      district: fields.district,
+      numberOfEmployees: empRaw ? Number(empRaw) : undefined,
       status: "PENDING" as const,
     };
 
