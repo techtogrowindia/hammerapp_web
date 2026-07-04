@@ -6,14 +6,15 @@ import { prisma } from "@/lib/prisma";
 import { saveUpload } from "@/lib/upload";
 
 const TEXT_KEYS = [
-  "site.title",
-  "site.description",
-  "whatsapp.api_url",
-  "whatsapp.api_key",
-  "whatsapp.sender",
-  "idfy.api_key",
-  "idfy.account_id",
+  "deposit.technician",
+  "deposit.shop",
+  "razorpay.key_id",
+  "razorpay.key_secret",
+  "api.company_bearer_token",
   "app.positive_message",
+  "webhook.team_member",
+  "webhook.referral",
+  "webhook.customer_otp",
 ] as const;
 
 export async function saveSettings(_prev: unknown, formData: FormData) {
