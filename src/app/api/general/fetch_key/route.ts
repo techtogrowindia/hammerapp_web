@@ -1,10 +1,11 @@
 import { shopOk } from "@/lib/api-shop";
+import { getPublishableKeyId } from "@/lib/payment";
 
 // GET /api/general/fetch_key — publishable keys for the mobile SDK.
-// razorpay_key is empty in stub mode (see lib/payment.ts).
+// Key resolves from admin-panel settings first, env var fallback; empty in stub mode.
 export async function GET() {
   return shopOk(
-    { razorpay_key: process.env.RAZORPAY_KEY_ID ?? "" },
+    { razorpay_key: await getPublishableKeyId() },
     "Keys",
   );
 }

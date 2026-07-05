@@ -1,16 +1,36 @@
 import crypto from "node:crypto";
+import { getSettings } from "./settings";
 
 /**
  * Razorpay adapter — pluggable stub.
  *
- * When RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET are set it talks to the real
- * Razorpay Orders API and verifies signatures. Until then it returns a
- * mock order so the shop onboarding flow works end-to-end without keys.
- * Mirrors the WhatsApp OTP adapter pattern (see otp.ts).
+ * Keys are resolved at call time: the admin-panel DB settings
+ * (razorpay.key_id / razorpay.key_secret) take precedence, falling back to
+ * the RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET env vars. When both keys resolve
+ * it talks to the real Razorpay Orders API and verifies signatures; until
+ * then it returns a mock order so the shop onboarding flow works end-to-end
+ * without keys. Mirrors the WhatsApp OTP adapter pattern (see otp.ts).
  */
 
-const KEY_ID = process.env.RAZORPAY_KEY_ID;
-const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
+interface RazorpayKeys {
+  keyId: string;
+  keySecret: string;
+}
+
+/** Resolve Razorpay keys: DB settings first, env vars as fallback. */
+async function getKeys(): Promise<RazorpayKeys> {
+  const s = await getSettings(["razorpay.key_id", "razorpay.key_secret"]);
+  return {
+    keyId: s["razorpay.key_id"]?.trim() || process.env.RAZORPAY_KEY_ID || "",
+    keySecret: s["razorpay.key_secret"]?.trim() || process.env.RAZORPAY_KEY_SECRET || "",
+  };
+}
+
+/** Publishable key_id for the mobile SDK (fetch_key / common-details). */
+export async function getPublishableKeyId(): Promise<string> {
+  const { keyId } = await getKeys();
+  return keyId;
+}
 
 /** One-time shop registration fee, in paise. ₹1000 default. */
 export const REGISTRATION_FEE_PAISE = Number(
@@ -25,8 +45,9 @@ export interface RazorpayOrder {
   mock: boolean;
 }
 
-export function isPaymentLive(): boolean {
-  return Boolean(KEY_ID && KEY_SECRET);
+export async function isPaymentLive(): Promise<boolean> {
+  const { keyId, keySecret } = await getKeys();
+  return Boolean(keyId && keySecret);
 }
 
 export async function createRegistrationOrder(
@@ -34,8 +55,9 @@ export async function createRegistrationOrder(
   receipt?: string,
 ): Promise<RazorpayOrder> {
   const currency = "INR";
+  const { keyId, keySecret } = await getKeys();
 
-  if (!isPaymentLive()) {
+  if (!keyId || !keySecret) {
     // Stub: deterministic-ish mock order id.
     return {
       orderId: `order_mock_${crypto.randomBytes(8).toString("hex")}`,
@@ -46,7 +68,7 @@ export async function createRegistrationOrder(
     };
   }
 
-  const auth = Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64");
+  const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
   const res = await fetch("https://api.razorpay.com/v1/orders", {
     method: "POST",
     headers: {
@@ -68,7 +90,7 @@ export async function createRegistrationOrder(
     orderId: data.id,
     amount: data.amount,
     currency: data.currency,
-    keyId: KEY_ID!,
+    keyId,
     mock: false,
   };
 }
@@ -77,9 +99,9 @@ export async function createRegistrationOrder(
  * Verifies a Razorpay payment signature. In stub mode (no secret) any
  * non-empty paymentId is accepted so the flow can complete in dev.
  */
-function verifySignature(orderId: string, paymentId: string, signature: string): boolean {
+function verifySignature(keySecret: string, orderId: string, paymentId: string, signature: string): boolean {
   const expected = crypto
-    .createHmac("sha256", KEY_SECRET!)
+    .createHmac("sha256", keySecret)
     .update(`${orderId}|${paymentId}`)
     .digest("hex");
   const a = Buffer.from(expected);
@@ -110,17 +132,18 @@ export async function verifyPayment(params: {
   const { orderId, paymentId, signature, expectedAmount } = params;
 
   if (!paymentId) return { ok: false, reason: "missing payment id" };
-  if (!isPaymentLive()) return { ok: true }; // stub accepts
+  const { keyId, keySecret } = await getKeys();
+  if (!keyId || !keySecret) return { ok: true }; // stub accepts
 
   // Fast path: honour a signature if the client ever provides one.
   if (signature) {
-    return verifySignature(orderId, paymentId, signature)
+    return verifySignature(keySecret, orderId, paymentId, signature)
       ? { ok: true }
       : { ok: false, reason: "signature mismatch" };
   }
 
   // App path: verify by fetching the payment from Razorpay directly.
-  const auth = Buffer.from(`${KEY_ID}:${KEY_SECRET}`).toString("base64");
+  const auth = Buffer.from(`${keyId}:${keySecret}`).toString("base64");
   let res: Response;
   try {
     res = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}`, {
