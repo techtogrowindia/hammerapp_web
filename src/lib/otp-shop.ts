@@ -1,27 +1,7 @@
 import { prisma } from "./prisma";
-import { generateOtpCode } from "./otp";
+import { generateOtpCode, sendOtpMessage } from "./otp";
 
 const OTP_TTL_SECONDS = Number(process.env.OTP_TTL_SECONDS ?? 300);
-const OTP_PROVIDER = process.env.OTP_PROVIDER ?? "console";
-
-// Reuses the same delivery approach as the technician OTP (console/whatsapp).
-async function deliver(mobile: string, code: string): Promise<void> {
-  if (OTP_PROVIDER === "whatsapp" && process.env.WHATSAPP_API_URL) {
-    const res = await fetch(process.env.WHATSAPP_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(process.env.WHATSAPP_API_KEY
-          ? { Authorization: `Bearer ${process.env.WHATSAPP_API_KEY}` }
-          : {}),
-      },
-      body: JSON.stringify({ mobile, message: `Your Hammer OTP is ${code}` }),
-    });
-    if (!res.ok) throw new Error(`WhatsApp OTP send failed: ${res.status}`);
-    return;
-  }
-  console.log(`[OTP:console] shop → ${mobile} : ${code}`);
-}
 
 /** Issues a fresh OTP for a shop, invalidating prior unconsumed ones. */
 export async function issueShopOtp(
@@ -40,7 +20,7 @@ export async function issueShopOtp(
     data: { shopId, mobile, code, purpose, expiresAt },
   });
 
-  await deliver(mobile, code);
+  await sendOtpMessage(mobile, code);
   return { code, expiresAt };
 }
 
