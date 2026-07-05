@@ -12,6 +12,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// ⚠️ TEMPORARY: rate limiting is DISABLED during testing (fixed OTP 1234 in use).
+// Flip back to `true` before go-live to re-enable all per-IP auth/OTP limits.
+const RATE_LIMITING_ENABLED = false;
+
 type Timestamps = number[];
 const store = new Map<string, Timestamps>();
 
@@ -54,6 +58,8 @@ export function checkRateLimit(
   req: NextRequest,
   config: RateLimitConfig,
 ): NextResponse | null {
+  if (!RATE_LIMITING_ENABLED) return null; // testing: never rate-limit
+
   const ip = getClientIp(req);
   const key = `${config.prefix ?? "rl"}:${ip}`;
   const now = Date.now();
