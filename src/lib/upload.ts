@@ -5,7 +5,7 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR ?? "./uploads";
 const UPLOAD_BASE_URL =
   process.env.NEXT_PUBLIC_UPLOAD_BASE_URL ?? "/uploads";
 
-const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+const DEFAULT_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 const ALLOWED = new Set([
   "image/jpeg",
   "image/png",
@@ -34,9 +34,10 @@ export async function saveUpload(
   file: File,
   type: string,
   technicianCode: string,
+  maxBytes: number = DEFAULT_MAX_BYTES,
 ): Promise<StoredFile> {
-  if (file.size > MAX_BYTES) {
-    throw new UploadError("File exceeds 10 MB limit");
+  if (file.size > maxBytes) {
+    throw new UploadError(`File exceeds ${Math.round(maxBytes / (1024 * 1024))} MB limit`);
   }
   if (file.type && !ALLOWED.has(file.type)) {
     throw new UploadError(`Unsupported file type: ${file.type}`);

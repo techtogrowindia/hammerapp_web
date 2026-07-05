@@ -3,7 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { saveUpload } from "@/lib/upload";
+import { saveUpload, UploadError } from "@/lib/upload";
+
+const GIF_MAX_BYTES = 15 * 1024 * 1024; // 15 MB — animated GIFs run larger than static images
 
 const TEXT_KEYS = [
   "site.title",
@@ -51,10 +53,10 @@ export async function saveSettings(_prev: unknown, formData: FormData) {
       upserts.push({ key: "site.favicon", value: stored.path });
     }
 
-    // OTP GIF upload
+    // OTP GIF upload — allow a larger cap since animated GIFs run bigger than static images.
     const gifFile = formData.get("app.otp_gif") as File | null;
     if (gifFile && gifFile.size > 0) {
-      const stored = await saveUpload(gifFile, "settings", "global");
+      const stored = await saveUpload(gifFile, "settings", "global", GIF_MAX_BYTES);
       upserts.push({ key: "app.otp_gif", value: stored.path });
     }
 
@@ -73,6 +75,7 @@ export async function saveSettings(_prev: unknown, formData: FormData) {
     return { ok: true, message: "Settings saved successfully" };
   } catch (err) {
     console.error("[saveSettings]", err);
-    return { ok: false, message: "Failed to save settings" };
+    const message = err instanceof UploadError ? err.message : "Failed to save settings";
+    return { ok: false, message };
   }
 }
