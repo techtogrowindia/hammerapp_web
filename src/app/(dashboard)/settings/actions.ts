@@ -53,9 +53,15 @@ export async function saveSettings(_prev: unknown, formData: FormData) {
       upserts.push({ key: "site.favicon", value: stored.path });
     }
 
-    // OTP GIF upload — allow a larger cap since animated GIFs run bigger than static images.
+    // OTP GIF upload or delete
+    const deleteGifFlag = formData.get("app.otp_gif_delete");
     const gifFile = formData.get("app.otp_gif") as File | null;
-    if (gifFile && gifFile.size > 0) {
+
+    if (deleteGifFlag === "true") {
+      // Delete: set the value to empty string (clears the setting)
+      upserts.push({ key: "app.otp_gif", value: "" });
+    } else if (gifFile && gifFile.size > 0) {
+      // Upload: allow a larger cap since animated GIFs run bigger than static images.
       const stored = await saveUpload(gifFile, "settings", "global", GIF_MAX_BYTES);
       upserts.push({ key: "app.otp_gif", value: stored.path });
     }

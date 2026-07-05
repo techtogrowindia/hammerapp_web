@@ -63,6 +63,7 @@ export function SettingsForm({ settings }: Props) {
   const logoRef = useRef<HTMLInputElement>(null);
   const faviconRef = useRef<HTMLInputElement>(null);
   const gifRef = useRef<HTMLInputElement>(null);
+  const [deleteGif, setDeleteGif] = useState(false);
 
   const logoUrl = fileUrl(settings["site.logo"]);
   const faviconUrl = fileUrl(settings["site.favicon"]);
@@ -246,7 +247,7 @@ export function SettingsForm({ settings }: Props) {
                   <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">OTP Screen GIF</label>
                   <p className="text-xs text-slate-500 mb-3">Current file</p>
                   <div className="flex items-start gap-4">
-                    {gifUrl ? (
+                    {!deleteGif && gifUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={gifUrl} alt="OTP screen gif preview" className="h-32 w-32 rounded-lg border border-slate-200 bg-slate-50 p-1 object-contain" />
                     ) : (
@@ -256,7 +257,7 @@ export function SettingsForm({ settings }: Props) {
                       </div>
                     )}
                   </div>
-                  <div className="mt-4">
+                  <div className="mt-4 space-y-2">
                     <button
                       type="button"
                       onClick={() => gifRef.current?.click()}
@@ -265,8 +266,31 @@ export function SettingsForm({ settings }: Props) {
                       <Upload className="h-4 w-4" /> Choose file — No file chosen
                     </button>
                     <input ref={gifRef} type="file" name="app.otp_gif" accept="image/gif,image/png,image/jpeg" className="hidden" />
+                    {!deleteGif && gifUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setDeleteGif(true)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 text-sm font-medium px-4 py-2 w-full justify-start"
+                      >
+                        🗑 Delete current GIF
+                      </button>
+                    )}
+                    {deleteGif && (
+                      <button
+                        type="button"
+                        onClick={() => setDeleteGif(false)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-2 w-full justify-start"
+                      >
+                        ↶ Keep current GIF
+                      </button>
+                    )}
                   </div>
-                  <p className="text-xs text-slate-400 mt-2">Allowed: GIF/PNG/JPG. Max 15 MB. Leave empty to keep existing gif.</p>
+                  {deleteGif && (
+                    <input type="hidden" name="app.otp_gif_delete" value="true" />
+                  )}
+                  <p className="text-xs text-slate-400 mt-2">
+                    Allowed: GIF/PNG/JPG. Max 15 MB. Leave empty to keep existing gif. Click "Delete current GIF" to remove it.
+                  </p>
                 </div>
               )}
 
