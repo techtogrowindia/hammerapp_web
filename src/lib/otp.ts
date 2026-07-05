@@ -32,6 +32,18 @@ async function getWhatsAppConfig(): Promise<WhatsAppConfig> {
   };
 }
 
+// TEMPORARY: until WhatsApp API is connected, everyone logs in with this
+// fixed PIN instead of a random one so testers don't need server log access.
+// Remove STUB_OTP_CODE once WhatsApp is live — resolveOtpCode() already
+// switches to real random OTPs automatically the moment a URL is configured.
+const STUB_OTP_CODE = "1234";
+
+/** Picks a real random OTP once WhatsApp is configured, else the fixed stub PIN. */
+export async function resolveOtpCode(): Promise<string> {
+  const { url } = await getWhatsAppConfig();
+  return url ? generateOtpCode() : STUB_OTP_CODE;
+}
+
 /** Sends an OTP via WhatsApp when configured; falls back to console logging. */
 export async function sendOtpMessage(mobile: string, code: string): Promise<void> {
   const { url, key } = await getWhatsAppConfig();
@@ -66,7 +78,7 @@ export async function issueOtp(
   mobile: string,
   purpose = "LOGIN",
 ): Promise<{ code: string; expiresAt: Date }> {
-  const code = generateOtpCode();
+  const code = await resolveOtpCode();
   const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000);
 
   await prisma.otp.updateMany({

@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { generateOtpCode, sendOtpMessage } from "./otp";
+import { resolveOtpCode, sendOtpMessage } from "./otp";
 
 const OTP_TTL_SECONDS = Number(process.env.OTP_TTL_SECONDS ?? 300);
 
@@ -9,7 +9,7 @@ export async function issueShopOtp(
   mobile: string,
   purpose = "LOGIN",
 ): Promise<{ code: string; expiresAt: Date }> {
-  const code = generateOtpCode();
+  const code = await resolveOtpCode();
   const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000);
 
   await prisma.shopOtp.updateMany({
