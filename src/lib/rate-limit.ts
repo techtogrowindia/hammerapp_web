@@ -85,21 +85,29 @@ export function checkRateLimit(
   return null;
 }
 
-// Pre-configured limiters for auth endpoints
+// Pre-configured limiters for auth endpoints.
+//
+// NOTE ON THE INDIAN MARKET: these limits are PER-IP, and Jio/Airtel route
+// large subscriber pools through shared CGNAT IPv4 addresses. A limit that is
+// too low blocks legitimate users who never made a prior request themselves
+// (they just share an IP with someone who did). The values below are tuned to
+// tolerate CGNAT + normal app retries while still capping abuse. Per-mobile
+// throttling of OTP sends is a better long-term guard against SMS/WhatsApp
+// cost abuse — see the OTP send path — but is not yet implemented.
 export const AUTH_RATE_LIMIT: RateLimitConfig = {
-  max: 5,
-  windowMs: 15 * 60_000, // 5 attempts per 15 minutes per IP
+  max: 30,
+  windowMs: 15 * 60_000, // 30 attempts per 15 minutes per IP (~2/min)
   prefix: "auth",
 };
 
 export const OTP_RATE_LIMIT: RateLimitConfig = {
-  max: 3,
-  windowMs: 15 * 60_000, // 3 OTP sends per 15 minutes per IP
+  max: 15,
+  windowMs: 15 * 60_000, // 15 OTP resends per 15 minutes per IP
   prefix: "otp",
 };
 
 export const OTP_VERIFY_RATE_LIMIT: RateLimitConfig = {
-  max: 10,
-  windowMs: 15 * 60_000, // 10 verify attempts (slightly more to allow legitimate retries)
+  max: 30,
+  windowMs: 15 * 60_000, // 30 verify attempts per 15 minutes per IP
   prefix: "otp-verify",
 };
