@@ -177,7 +177,13 @@ export function SettingsForm({ settings }: Props) {
                     <p className="text-xs text-slate-400 mt-1">ICO or PNG, 32×32 px recommended.</p>
                   </div>
 
-                  <Field label="Site title" name="site.title" defaultValue={settings["site.title"]} placeholder="Hammer Admin" />
+                  <Field
+                    label="Site title"
+                    name="site.title"
+                    defaultValue={settings["site.title"]}
+                    placeholder="Hammer Admin"
+                    helper="Shown in the browser tab title only — the sidebar brand name always stays 'Hammer App'."
+                  />
                   <Field label="Meta description" name="site.description" defaultValue={settings["site.description"]} placeholder="Hammer services marketplace admin panel" textarea />
                 </>
               )}

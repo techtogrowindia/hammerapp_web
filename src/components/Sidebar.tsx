@@ -75,10 +75,8 @@ const NAV: NavSection[] = [
 
 export function Sidebar({
   logo,
-  siteName,
 }: {
   logo?: string | null;
-  siteName?: string | null;
 }) {
   const pathname = usePathname();
 
@@ -90,12 +88,13 @@ export function Sidebar({
       <div className="flex items-center gap-2.5 px-4 h-16 border-b border-white/10">
         {logo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={logo} alt={siteName ?? "Hammer"} className="h-9 w-9 rounded object-contain shrink-0" />
+          <img src={logo} alt="Hammer App" className="h-9 w-9 rounded object-contain shrink-0" />
         ) : (
           <Hammer className="h-6 w-6 text-[var(--accent)] shrink-0" />
         )}
+        {/* Brand text is fixed — "Site title" setting controls only the browser tab <title>, not this label. */}
         <span className="text-white font-bold text-base tracking-tight leading-tight">
-          {siteName ?? "Hammer App"}
+          Hammer App
         </span>
       </div>
 
