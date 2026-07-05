@@ -13,11 +13,53 @@ interface Props {
   settings: Record<string, string>;
 }
 
-type TabType = "deposit" | "payment" | "gif" | "message" | "notification" | "branding" | "whatsapp" | "idfy";
+type TabType = "branding" | "whatsapp" | "deposit" | "payment" | "idfy" | "gif" | "message" | "notification";
+
+interface TabGroup {
+  label: string;
+  tabs: Array<{ id: TabType; label: string }>;
+}
+
+const GROUPS: TabGroup[] = [
+  {
+    label: "General",
+    tabs: [
+      { id: "branding", label: "Branding" },
+      { id: "whatsapp", label: "WhatsApp API" },
+    ],
+  },
+  {
+    label: "Payments",
+    tabs: [
+      { id: "deposit", label: "Initial Deposit" },
+      { id: "payment", label: "Payment gateway" },
+      { id: "idfy", label: "IDfy Verification" },
+    ],
+  },
+  {
+    label: "App Content",
+    tabs: [
+      { id: "gif", label: "Gif Settings" },
+      { id: "message", label: "Positive message" },
+      { id: "notification", label: "Notification" },
+    ],
+  },
+];
+
+const TAB_META: Record<TabType, { title: string; description: string }> = {
+  branding: { title: "Branding", description: "Logo, favicon and metadata shown in the admin panel." },
+  whatsapp: { title: "WhatsApp API", description: "OTP and notification delivery via your WhatsApp provider." },
+  deposit: { title: "Initial Deposit", description: "Onboarding charges collected from technicians and shops." },
+  payment: { title: "Payment gateway", description: "Razorpay credentials and API authorization tokens." },
+  idfy: { title: "IDfy Verification", description: "Aadhaar–PAN linkage and GST verification." },
+  gif: { title: "Gif Settings", description: "Animation shown on the OTP and splash screens in the mobile app." },
+  message: { title: "Positive message", description: "Motivational message shown in the app's dashboard." },
+  notification: { title: "Notification", description: "Webhook URLs fired on key app events." },
+};
 
 export function SettingsForm({ settings }: Props) {
   const [state, action, pending] = useActionState(saveSettings, null);
-  const [activeTab, setActiveTab] = useState<TabType>("deposit");
+  const [activeTab, setActiveTab] = useState<TabType>("branding");
   const logoRef = useRef<HTMLInputElement>(null);
   const faviconRef = useRef<HTMLInputElement>(null);
   const gifRef = useRef<HTMLInputElement>(null);
@@ -25,47 +67,47 @@ export function SettingsForm({ settings }: Props) {
   const logoUrl = fileUrl(settings["site.logo"]);
   const faviconUrl = fileUrl(settings["site.favicon"]);
   const gifUrl = fileUrl(settings["app.otp_gif"]);
-
-  const tabs: Array<{ id: TabType; label: string }> = [
-    { id: "deposit", label: "Initial Deposit" },
-    { id: "payment", label: "Payment gateway" },
-    { id: "gif", label: "Gif Settings" },
-    { id: "message", label: "Positive message" },
-    { id: "notification", label: "Notification" },
-    { id: "branding", label: "Branding" },
-    { id: "whatsapp", label: "WhatsApp API" },
-    { id: "idfy", label: "IDfy Verification" },
-  ];
+  const meta = TAB_META[activeTab];
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-white rounded-xl border border-[var(--border)] shadow-sm overflow-hidden">
-        {/* ── Header ── */}
+    <div className="flex gap-6 items-start">
+      {/* ── Sidebar ── */}
+      <div className="w-56 shrink-0">
+        <h1 className="text-2xl font-bold text-slate-900 mb-6">Settings</h1>
+        <nav className="space-y-5">
+          {GROUPS.map((group) => (
+            <div key={group.label}>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1.5 px-3">
+                {group.label}
+              </p>
+              <div className="space-y-0.5">
+                {group.tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      activeTab === tab.id
+                        ? "bg-orange-100 text-[var(--accent)]"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </nav>
+      </div>
+
+      {/* ── Content Card ── */}
+      <div className="flex-1 min-w-0 bg-white rounded-xl border border-[var(--border)] shadow-sm overflow-hidden">
         <div className="px-8 py-6 border-b border-[var(--border)]">
-          <h1 className="text-2xl font-bold text-slate-900">Settings</h1>
+          <h2 className="font-semibold text-slate-900">{meta.title}</h2>
+          <p className="text-sm text-slate-500 mt-1">{meta.description}</p>
         </div>
 
-        {/* ── Horizontal Tabs ── */}
-        <div className="px-8 border-b border-[var(--border)]">
-          <div className="flex flex-wrap gap-x-7 gap-y-1 -mb-px">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`pb-3 pt-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${
-                  activeTab === tab.id
-                    ? "border-[var(--accent)] text-[var(--accent)]"
-                    : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Body ── */}
         <form action={action}>
           <div className="px-8 py-7">
             {state && (
@@ -86,6 +128,69 @@ export function SettingsForm({ settings }: Props) {
             )}
 
             <div className="max-w-xl space-y-6">
+              {/* ── Branding ── */}
+              {activeTab === "branding" && (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Logo</label>
+                    <div className="flex items-center gap-4">
+                      {logoUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={logoUrl} alt="Logo" className="h-12 w-auto rounded border border-slate-200 bg-slate-50 p-1 object-contain" />
+                      ) : (
+                        <div className="h-12 w-20 rounded border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-xs text-slate-400">
+                          No logo
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => logoRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-medium px-3 py-1.5"
+                      >
+                        <Upload className="h-3.5 w-3.5" /> Upload
+                      </button>
+                      <input ref={logoRef} type="file" name="site.logo" accept="image/*" className="hidden" />
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">PNG, JPG, SVG. Recommended: 200×50 px.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Favicon</label>
+                    <div className="flex items-center gap-4">
+                      {faviconUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={faviconUrl} alt="Favicon" className="h-8 w-8 rounded border border-slate-200 bg-slate-50 p-0.5 object-contain" />
+                      ) : (
+                        <div className="h-8 w-8 rounded border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-xs text-slate-400">
+                          –
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => faviconRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-medium px-3 py-1.5"
+                      >
+                        <Upload className="h-3.5 w-3.5" /> Upload
+                      </button>
+                      <input ref={faviconRef} type="file" name="site.favicon" accept="image/*" className="hidden" />
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1">ICO or PNG, 32×32 px recommended.</p>
+                  </div>
+
+                  <Field label="Site title" name="site.title" defaultValue={settings["site.title"]} placeholder="Hammer Admin" />
+                  <Field label="Meta description" name="site.description" defaultValue={settings["site.description"]} placeholder="Hammer services marketplace admin panel" textarea />
+                </>
+              )}
+
+              {/* ── WhatsApp API ── */}
+              {activeTab === "whatsapp" && (
+                <>
+                  <Field label="API URL" name="whatsapp.api_url" defaultValue={settings["whatsapp.api_url"]} placeholder="https://api.whatsapp-provider.com/send" type="url" />
+                  <Field label="API key / token" name="whatsapp.api_key" defaultValue={settings["whatsapp.api_key"]} placeholder="Bearer token or API key" secret />
+                  <Field label="Sender number" name="whatsapp.sender" defaultValue={settings["whatsapp.sender"]} placeholder="+919876543210" />
+                </>
+              )}
+
               {/* ── Initial Deposit ── */}
               {activeTab === "deposit" && (
                 <>
@@ -116,10 +221,23 @@ export function SettingsForm({ settings }: Props) {
                 </>
               )}
 
+              {/* ── IDfy Verification ── */}
+              {activeTab === "idfy" && (
+                <>
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800 space-y-1">
+                    <p className="font-medium">IDfy API details</p>
+                    <p>Endpoint: <code className="bg-amber-100 rounded px-1">https://api.idfy.com/tasks/sync/verify_with_source/aadhaar_pan_link</code></p>
+                    <p>Get your <strong>API Key</strong> and <strong>Account ID</strong> from the <a href="https://idfy.com" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">IDfy dashboard</a>. Until configured, verification runs in stub mode (mock result).</p>
+                  </div>
+                  <Field label="IDfy API key" name="idfy.api_key" defaultValue={settings["idfy.api_key"]} placeholder="••••••••••••••••" secret />
+                  <Field label="IDfy Account ID" name="idfy.account_id" defaultValue={settings["idfy.account_id"]} placeholder="Your IDfy account ID" />
+                </>
+              )}
+
               {/* ── Gif Settings ── */}
               {activeTab === "gif" && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">OTP Screen GIF</label>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">OTP Screen GIF</label>
                   <p className="text-xs text-slate-500 mb-3">Current file</p>
                   <div className="flex items-start gap-4">
                     {gifUrl ? (
@@ -187,82 +305,6 @@ export function SettingsForm({ settings }: Props) {
                   />
                 </>
               )}
-
-              {/* ── Branding ── */}
-              {activeTab === "branding" && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Logo</label>
-                    <div className="flex items-center gap-4">
-                      {logoUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={logoUrl} alt="Logo" className="h-12 w-auto rounded border border-slate-200 bg-slate-50 p-1 object-contain" />
-                      ) : (
-                        <div className="h-12 w-20 rounded border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-xs text-slate-400">
-                          No logo
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => logoRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-medium px-3 py-1.5"
-                      >
-                        <Upload className="h-3.5 w-3.5" /> Upload
-                      </button>
-                      <input ref={logoRef} type="file" name="site.logo" accept="image/*" className="hidden" />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">PNG, JPG, SVG. Recommended: 200×50 px.</p>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Favicon</label>
-                    <div className="flex items-center gap-4">
-                      {faviconUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={faviconUrl} alt="Favicon" className="h-8 w-8 rounded border border-slate-200 bg-slate-50 p-0.5 object-contain" />
-                      ) : (
-                        <div className="h-8 w-8 rounded border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center text-xs text-slate-400">
-                          –
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => faviconRef.current?.click()}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 text-xs font-medium px-3 py-1.5"
-                      >
-                        <Upload className="h-3.5 w-3.5" /> Upload
-                      </button>
-                      <input ref={faviconRef} type="file" name="site.favicon" accept="image/*" className="hidden" />
-                    </div>
-                    <p className="text-xs text-slate-400 mt-1">ICO or PNG, 32×32 px recommended.</p>
-                  </div>
-
-                  <Field label="Site title" name="site.title" defaultValue={settings["site.title"]} placeholder="Hammer Admin" />
-                  <Field label="Meta description" name="site.description" defaultValue={settings["site.description"]} placeholder="Hammer services marketplace admin panel" textarea />
-                </>
-              )}
-
-              {/* ── WhatsApp API ── */}
-              {activeTab === "whatsapp" && (
-                <>
-                  <Field label="API URL" name="whatsapp.api_url" defaultValue={settings["whatsapp.api_url"]} placeholder="https://api.whatsapp-provider.com/send" type="url" />
-                  <Field label="API key / token" name="whatsapp.api_key" defaultValue={settings["whatsapp.api_key"]} placeholder="Bearer token or API key" secret />
-                  <Field label="Sender number" name="whatsapp.sender" defaultValue={settings["whatsapp.sender"]} placeholder="+919876543210" />
-                </>
-              )}
-
-              {/* ── IDfy Verification ── */}
-              {activeTab === "idfy" && (
-                <>
-                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-xs text-amber-800 space-y-1">
-                    <p className="font-medium">IDfy API details</p>
-                    <p>Endpoint: <code className="bg-amber-100 rounded px-1">https://api.idfy.com/tasks/sync/verify_with_source/aadhaar_pan_link</code></p>
-                    <p>Get your <strong>API Key</strong> and <strong>Account ID</strong> from the <a href="https://idfy.com" target="_blank" rel="noopener noreferrer" className="underline hover:no-underline">IDfy dashboard</a>. Until configured, verification runs in stub mode (mock result).</p>
-                  </div>
-                  <Field label="IDfy API key" name="idfy.api_key" defaultValue={settings["idfy.api_key"]} placeholder="••••••••••••••••" secret />
-                  <Field label="IDfy Account ID" name="idfy.account_id" defaultValue={settings["idfy.account_id"]} placeholder="Your IDfy account ID" />
-                </>
-              )}
             </div>
           </div>
 
@@ -316,7 +358,7 @@ function Field({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1.5" htmlFor={name}>
+      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2" htmlFor={name}>
         {label}
       </label>
       {textarea ? (
