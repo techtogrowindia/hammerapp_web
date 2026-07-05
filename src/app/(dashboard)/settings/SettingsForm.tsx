@@ -289,7 +289,7 @@ export function SettingsForm({ settings }: Props) {
                     <input type="hidden" name="app.otp_gif_delete" value="true" />
                   )}
                   <p className="text-xs text-slate-400 mt-2">
-                    Allowed: GIF/PNG/JPG. Max 15 MB. Leave empty to keep existing gif. Click "Delete current GIF" to remove it.
+                    Allowed: GIF/PNG/JPG. Max 15 MB. Leave empty to keep existing gif. Click &quot;Delete current GIF&quot; to remove it.
                   </p>
                 </div>
               )}
